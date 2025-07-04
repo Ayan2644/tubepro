@@ -1,8 +1,8 @@
-
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import AppSkeleton from './AppSkeleton'; // Importamos nosso novo componente
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,18 +16,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     if (!isLoading && !user) {
       toast.error('Você precisa estar logado para acessar esta página');
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, location]); // Adicionado `location` ao array de dependências
 
-  // Mostra um indicador de carregamento enquanto verifica a autenticação
+  // Mostra nosso novo esqueleto de UI enquanto verifica a autenticação
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-tubepro-dark">
-        <div className="p-4 rounded-lg bg-white/5 text-white">
-          <div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-tubepro-red rounded-full mx-auto mb-2"></div>
-          <p className="text-white/70">Verificando autenticação...</p>
-        </div>
-      </div>
-    );
+    return <AppSkeleton />;
   }
 
   // Redireciona para login se não estiver autenticado

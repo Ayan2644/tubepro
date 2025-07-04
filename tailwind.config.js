@@ -55,11 +55,24 @@ module.exports = {
           '0%, 100%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
         },
+        // NOVA ANIMAÇÃO ADICIONADA
+        'fade-in-up': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(10px)'
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0)'
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'gradient-shift': 'gradient-shift 5s ease infinite',
+        // NOVA ANIMAÇÃO ADICIONADA
+        'fade-in-up': 'fade-in-up 0.5s ease-out forwards',
       },
       backgroundImage: {
         'red-gradient': 'linear-gradient(90deg, #E41A1A, #FFAD34)',

@@ -8,12 +8,8 @@ import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { Textarea } from '@/components/ui/textarea';
 import ApiKeyInstructions from '@/components/ApiKeyInstructions';
-import { 
-  transcribeYoutubeVideo, 
-  transcribeVideoFile,
-  TranscriptionResult,
-  extractYoutubeVideoId
-} from '@/utils/transcriptionService';
+import { transcribeYoutubeVideo, transcribeVideoFile } from '@/services/api'; // MUDANÇA AQUI
+import { TranscriptionResult, extractYoutubeVideoId } from '@/utils/transcriptionService';
 import { useAuth } from '@/hooks/useAuth';
 
 const Transcricao: React.FC = () => {
@@ -40,13 +36,11 @@ const Transcricao: React.FC = () => {
   };
 
   const handleYoutubeTranscription = async () => {
-    // Validate YouTube URL
     if (!extractYoutubeVideoId(youtubeUrl)) {
       toast.error('Por favor, insira uma URL válida do YouTube');
       return;
     }
 
-    // Verificar se o usuário tem créditos suficientes (estimativa de 5 minutos de vídeo = 25 Tubecoins)
     if (!spendCoins(25, 'Transcrição de Vídeo')) {
       toast.error('Tubecoins insuficientes para realizar a transcrição');
       return;
@@ -54,15 +48,17 @@ const Transcricao: React.FC = () => {
 
     setIsLoading(true);
     const clearProgressInterval = simulateProgress();
-    
+
     try {
-      const result = await transcribeYoutubeVideo(youtubeUrl);
+      const result = await transcribeYoutubeVideo(youtubeUrl); // Usa a função do novo serviço
       setTranscription(result);
       setProgress(100);
       toast.success('Transcrição concluída com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na transcrição:', error);
-      toast.error('Ocorreu um erro ao transcrever o vídeo');
+      toast.error('Erro ao transcrever o vídeo.', {
+        description: error.message || 'Tente novamente mais tarde.',
+      });
     } finally {
       clearProgressInterval();
       setIsLoading(false);
@@ -71,37 +67,36 @@ const Transcricao: React.FC = () => {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    
+
     if (!file) {
       return;
     }
-    
-    // Check if it's a video or audio file
+
     if (!file.type.includes('video/') && !file.type.includes('audio/')) {
       toast.error('Por favor, selecione um arquivo de vídeo ou áudio válido');
       return;
     }
-    
-    // Estimar o custo do arquivo baseado no tamanho (cada 10MB = 10 Tubecoins)
+
     const estimatedCost = Math.ceil(file.size / (10 * 1024 * 1024)) * 10;
-    
-    // Verificar se o usuário tem créditos suficientes
+
     if (!spendCoins(estimatedCost, 'Transcrição de Arquivo')) {
       toast.error('Tubecoins insuficientes para realizar a transcrição');
       return;
     }
-    
+
     setIsLoading(true);
     const clearProgressInterval = simulateProgress();
-    
+
     try {
-      const result = await transcribeVideoFile(file);
+      const result = await transcribeVideoFile(file); // Usa a função do novo serviço
       setTranscription(result);
       setProgress(100);
       toast.success('Arquivo transcrito com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na transcrição:', error);
-      toast.error('Ocorreu um erro ao transcrever o arquivo');
+      toast.error('Erro ao transcrever o arquivo.', {
+        description: error.message || 'Tente novamente mais tarde.',
+      });
     } finally {
       clearProgressInterval();
       setIsLoading(false);
@@ -110,7 +105,7 @@ const Transcricao: React.FC = () => {
 
   const copyToClipboard = () => {
     if (!transcription) return;
-    
+
     navigator.clipboard.writeText(transcription.text)
       .then(() => {
         setCopied(true);
@@ -146,7 +141,7 @@ const Transcricao: React.FC = () => {
         <TabsTrigger value="youtube">URL do YouTube</TabsTrigger>
         <TabsTrigger value="upload">Upload de Arquivo</TabsTrigger>
       </TabsList>
-      
+
       <TabsContent value="youtube" className="bg-tubepro-darkAccent rounded-xl p-6">
         <div className="mb-6">
           <label htmlFor="youtube-url" className="block mb-2 font-medium">
@@ -160,15 +155,15 @@ const Transcricao: React.FC = () => {
             className="bg-tubepro-dark border-white/10"
           />
         </div>
-        
-        <Button 
-          onClick={handleYoutubeTranscription} 
-          disabled={isLoading} 
+
+        <Button
+          onClick={handleYoutubeTranscription}
+          disabled={isLoading}
           className="btn-gradient w-full"
         >
           {isLoading ? 'Transcrevendo...' : 'Transcrever Vídeo'}
         </Button>
-        
+
         {isLoading && (
           <div className="mt-4">
             <p className="text-sm text-white/70 mb-2">Extraindo áudio e transcrevendo...</p>
@@ -176,7 +171,7 @@ const Transcricao: React.FC = () => {
           </div>
         )}
       </TabsContent>
-      
+
       <TabsContent value="upload" className="bg-tubepro-darkAccent rounded-xl p-6">
         <div className="mb-6">
           <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center">
@@ -199,7 +194,7 @@ const Transcricao: React.FC = () => {
             </p>
           </div>
         </div>
-        
+
         {isLoading && (
           <div className="mt-4">
             <p className="text-sm text-white/70 mb-2">Processando arquivo e transcrevendo...</p>
@@ -214,31 +209,31 @@ const Transcricao: React.FC = () => {
     <div className="bg-tubepro-darkAccent rounded-xl p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Transcrição do Vídeo</h2>
-        <Button 
-          variant="outline" 
-          className="flex items-center gap-2" 
+        <Button
+          variant="outline"
+          className="flex items-center gap-2"
           onClick={copyToClipboard}
         >
           {copied ? <Check size={16} /> : <Copy size={16} />}
           {copied ? 'Copiado!' : 'Copiar Transcrição'}
         </Button>
       </div>
-      
+
       <Textarea
         value={transcription?.text || ''}
         readOnly
         className="min-h-[300px] bg-tubepro-dark border-white/10 whitespace-pre-line"
       />
-      
+
       <div className="flex justify-between mt-6">
         <div className="flex items-center text-white/70">
           <FileAudio size={16} className="mr-2" />
           <span className="text-sm">Transcrição gerada por IA</span>
         </div>
-        
+
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={resetTranscription}
           >
             Nova Transcrição

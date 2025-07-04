@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,23 +33,20 @@ const ToolCard: React.FC<ToolCardProps> = ({
   const { user, spendCoins } = useAuth();
   
   const handleClick = () => {
-    // Verificar se o usuário está autenticado
     if (!user) {
       toast.error('Você precisa estar logado para usar esta funcionalidade');
       navigate('/login');
       return;
     }
     
-    // Se tem custo de coins e feature definida, verificar se o usuário pode gastar
     if (coinCost && feature) {
       const canUseFeature = spendCoins(coinCost, feature);
       
       if (!canUseFeature) {
-        return; // Não continua se não pode usar o recurso
+        return;
       }
     }
     
-    // Continua com a navegação normal
     if (onClick) {
       onClick();
     } else if (path) {
@@ -62,10 +58,10 @@ const ToolCard: React.FC<ToolCardProps> = ({
     <div 
       onClick={handleClick}
       className={cn(
-        'flex flex-col items-center justify-center p-5 rounded-xl card-hover cursor-pointer transition-all duration-200 hover:scale-105 relative',
+        'flex flex-col items-center justify-center p-5 rounded-xl cursor-pointer transition-all duration-300 ease-in-out hover:scale-[1.03] hover:-translate-y-1 relative',
         gradient 
-          ? 'btn-gradient text-white shadow-md shadow-tubepro-red/20' 
-          : 'bg-tubepro-darkAccent text-white/90 border border-white/10',
+          ? 'btn-gradient text-white shadow-md hover:shadow-lg hover:shadow-tubepro-red/30' 
+          : 'bg-tubepro-darkAccent text-white/90 border border-white/10 hover:border-tubepro-red/50',
         className
       )}
     >
