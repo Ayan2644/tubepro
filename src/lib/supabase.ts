@@ -1,4 +1,4 @@
-rt { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 // Obtém as variáveis de ambiente do Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -7,10 +7,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 // Verifica se as variáveis de ambiente estão definidas
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase environment variables are missing. Please check your environment configuration.');
+  // Opcional: Se quiser que o app pare ou mostre um erro crítico aqui
+  // throw new Error('Supabase client not initialized: Missing environment variables.');
 }
 
 // Cria o cliente Supabase apenas se as variáveis estiverem disponíveis
-export const supabaseClient = supabaseUrl && supabaseAnonKey 
+export const supabaseClient = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 

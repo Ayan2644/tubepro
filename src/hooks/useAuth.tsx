@@ -1,10 +1,10 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { getSupabaseClient } from '@/lib/supabase'; // Importe o cliente Supabase
 
 // Definir tipos para o usuário
 export interface User {
-  id: number;
+  id: string; // O ID do Supabase é uma string (UUID)
   name: string;
   email: string;
   avatar?: string;
@@ -55,25 +55,105 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Carregar usuário do localStorage ao iniciar
+  const supabase = getSupabaseClient(); // Obtenha a instância do Supabase
+
+  // Carregar usuário da sessão Supabase ao iniciar
   useEffect(() => {
-    const storedUser = localStorage.getItem('tubepro_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
-  }, []);
+    const fetchUser = async () => {
+      setIsLoading(true);
+      try {
+        const { data: { user: supabaseUser }, error } = await supabase.auth.getUser();
+
+        if (error) {
+          // Tratar AuthSessionMissingError como informação, pois é esperado para usuários deslogados
+          if (error.name === 'AuthSessionMissingError') {
+            console.info("Nenhuma sessão de autenticação encontrada (esperado para usuários deslogados).");
+          } else {
+            console.error("Erro ao buscar usuário do Supabase:", error);
+            toast.error(error.message || "Erro desconhecido ao buscar usuário.");
+          }
+          setUser(null);
+        } else if (supabaseUser) {
+          // Se o usuário estiver logado no Supabase, tente buscar os dados dele no seu banco de dados
+          const { data: userData, error: dbError } = await supabase
+            .from('profiles') // Assumindo que você terá uma tabela 'profiles' para dados adicionais do usuário
+            .select('*')
+            .eq('id', supabaseUser.id)
+            .single();
+
+          if (dbError && dbError.details?.includes('zero rows')) {
+            // Se o perfil não existir, crie um perfil básico
+            const initialUser: User = {
+              id: supabaseUser.id,
+              name: supabaseUser.email?.split('@')[0] || 'Novo Usuário',
+              email: supabaseUser.email || '',
+              plan: 'free',
+              tubecoins: 100, // Bônus inicial de registro
+              level: 1,
+              experience: 0,
+              experienceToNextLevel: calculateExperienceForLevel(1),
+              usageHistory: []
+            };
+            const { data: newProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert(initialUser)
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error("Erro ao inserir perfil inicial no fetchUser:", insertError);
+              toast.error("Erro ao carregar perfil. Tente novamente.");
+            } else {
+              setUser(newProfile as User);
+              toast.success('Bem-vindo ao TubePro! Você ganhou 100 Tubecoins de bônus!');
+            }
+          } else if (dbError) {
+            console.error("Erro ao buscar perfil do usuário:", dbError);
+            toast.error("Erro ao carregar perfil. Tente novamente.");
+          } else {
+            setUser(userData as User);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (e: any) { // Capture como 'any' para acessar 'message' com segurança
+        console.error("Erro inesperado no AuthProvider ao carregar usuário:", e);
+        toast.error(e.message || "Erro desconhecido ao carregar usuário.");
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUser();
+
+    // Adiciona um listener para mudanças de estado de autenticação
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          fetchUser(); // Refetch user data when signed in
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
 
   // Função para ganhar Tubecoins
   const earnCoins = (amount: number, reason: string) => {
     if (!user) return;
 
+    // TODO: Implementar atualização no banco de dados Supabase
     const updatedUser = {
       ...user,
       tubecoins: user.tubecoins + amount
     };
 
-    localStorage.setItem('tubepro_user', JSON.stringify(updatedUser));
     setUser(updatedUser);
     toast.success(`+${amount} Tubecoins: ${reason}`);
   };
@@ -81,14 +161,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Função para gastar Tubecoins
   const spendCoins = (amount: number, feature: string): boolean => {
     if (!user) return false;
-    
+
     if (user.tubecoins < amount) {
       toast.error(`Tubecoins insuficientes para usar ${feature}`);
       return false;
     }
 
     const currentDate = new Date().toISOString();
-    
+
+    // TODO: Implementar atualização no banco de dados Supabase
     const updatedUser = {
       ...user,
       tubecoins: user.tubecoins - amount,
@@ -98,13 +179,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ]
     };
 
-    localStorage.setItem('tubepro_user', JSON.stringify(updatedUser));
     setUser(updatedUser);
     toast.info(`-${amount} Tubecoins: ${feature}`);
-    
+
     // Ganha experiência ao usar recursos
     earnExperience(Math.floor(amount / 2));
-    
+
     return true;
   };
 
@@ -120,71 +200,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedUser.experience -= updatedUser.experienceToNextLevel;
       updatedUser.level += 1;
       updatedUser.experienceToNextLevel = calculateExperienceForLevel(updatedUser.level);
-      
+
       // Bônus ao subir de nível
       updatedUser.tubecoins += updatedUser.level * 10;
       toast.success(`🎉 Nível ${updatedUser.level} alcançado! +${updatedUser.level * 10} Tubecoins de bônus!`);
     }
 
-    localStorage.setItem('tubepro_user', JSON.stringify(updatedUser));
+    // TODO: Implementar atualização no banco de dados Supabase
     setUser(updatedUser);
   };
 
-  // Função de login simulada
+  // Função de login com Supabase
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
     try {
-      // Simular delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Verificação básica - em um app real isso seria feito no backend
-      if (email === 'demo@tubepro.com' && password === 'password') {
-        const mockUser: User = {
-          id: 1,
-          name: 'Usuário Demo',
-          email: 'demo@tubepro.com',
-          plan: 'pro',
-          tubecoins: 500,
-          level: 3,
-          experience: 75,
-          experienceToNextLevel: calculateExperienceForLevel(3),
-          usageHistory: [
-            { date: '2023-05-01T10:30:00Z', feature: 'Geração de Ideias', coinsSpent: 10 },
-            { date: '2023-05-02T14:45:00Z', feature: 'Escrita de Roteiro', coinsSpent: 25 },
-            { date: '2023-05-05T09:15:00Z', feature: 'Assistente AI', coinsSpent: 15 }
-          ]
-        };
-        
-        // Salvar usuário no localStorage
-        localStorage.setItem('tubepro_user', JSON.stringify(mockUser));
-        setUser(mockUser);
-        toast.success('Login realizado com sucesso!');
-      } else {
-        throw new Error('Credenciais inválidas');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        // Agora, 'error' é do tipo 'PostgrestError' ou similar, com uma propriedade 'message'
+        toast.error(error.message || 'Falha no login. Verifique suas credenciais.');
+        throw error;
       }
-    } catch (error) {
+
+      // Se o login for bem-sucedido, fetchUser no useEffect cuidará de carregar o perfil
+      toast.success('Login realizado com sucesso!');
+    } catch (error: any) { // Capture como 'any' para acessar 'message' com segurança
       console.error('Erro no login:', error);
-      toast.error('Falha no login. Verifique suas credenciais.');
+      // Evita duplicidade de toast se o erro já foi exibido acima
+      if (!error.message) { // Se não tem uma mensagem específica, é um erro inesperado
+        toast.error('Ocorreu um erro inesperado no login. Por favor, tente novamente.');
+      }
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Função de registro simulada
+  // Função de registro com Supabase
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
-    
     try {
-      // Simular delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simular registro - em um app real isso seria feito no backend
-      const mockUser: User = {
-        id: Math.floor(Math.random() * 1000),
-        name,
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
+        password,
+        options: {
+          data: {
+            full_name: name, // Supabase user metadata
+          },
+        },
+      });
+
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
+          toast.error('Este e-mail já está registrado. Por favor, faça login ou use outro e-mail.');
+        } else if (signUpError.message.includes('Password should be at least')) {
+          toast.error('A senha é muito fraca. Ela deve ter pelo menos 6 caracteres.');
+        } else {
+          toast.error(signUpError.message || 'Falha no registro. Tente novamente.');
+        }
+        return; // Sair da função se houver um erro no signUp
+      }
+
+      // Se signUpData.user for nulo, geralmente significa que a confirmação de email é necessária
+      // e o usuário não está logado automaticamente após o registro.
+      if (!signUpData.user) {
+        toast.info('Verifique seu e-mail para confirmar a conta antes de fazer login. Um link de confirmação foi enviado.');
+        return; // Sair da função se a confirmação de e-mail for necessária
+      }
+
+      // Se chegou aqui, o usuário foi criado no auth.users e logado automaticamente (se a confirmação de email estiver desativada).
+      // Agora insere o perfil inicial no seu banco de dados (tabela 'profiles').
+      const initialUser: User = {
+        id: signUpData.user.id,
+        name: name,
+        email: email,
         plan: 'free',
         tubecoins: 100, // Bônus inicial de registro
         level: 1,
@@ -192,44 +284,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         experienceToNextLevel: calculateExperienceForLevel(1),
         usageHistory: []
       };
-      
-      // Salvar usuário no localStorage
-      localStorage.setItem('tubepro_user', JSON.stringify(mockUser));
-      setUser(mockUser);
+
+      const { error: insertProfileError } = await supabase.from('profiles').insert(initialUser);
+
+      if (insertProfileError) {
+        // Se a inserção do perfil falhar (ex: por FK constraint, RLS, etc.)
+        console.error('Erro ao inserir perfil do usuário:', insertProfileError);
+        toast.error(`Conta criada, mas houve um erro ao configurar seu perfil: ${insertProfileError.message || 'Erro desconhecido'}. Por favor, tente fazer login. Se o problema persistir, entre em contato com o suporte.`);
+        return; // Sair da função se a inserção do perfil falhar
+      }
+
       toast.success('Conta criada com sucesso! Você ganhou 100 Tubecoins de bônus!');
-    } catch (error) {
-      console.error('Erro no registro:', error);
-      toast.error('Falha no registro. Tente novamente.');
-      throw error;
+      // O fetchUser no useEffect cuidará do carregamento do perfil completo após o login automático.
+
+    } catch (error: any) { // Use 'any' para o erro geral, ou refine o tipo se souber qual é
+      // Este catch final é para erros inesperados que não foram pegos acima.
+      console.error('Erro inesperado no registro:', error);
+      // Não exibe toast aqui para evitar duplicidade, a menos que seja um erro genérico não específico
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Função de recuperação de senha simulada
+  // Função de recuperação de senha com Supabase
   const resetPassword = async (email: string) => {
     setIsLoading(true);
-    
     try {
-      // Simular delay de rede
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simular recuperação - em um app real isso enviaria um e-mail
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`, // URL para onde o usuário será redirecionado
+      });
+
+      if (error) {
+        toast.error(error.message || 'Falha no envio do link de recuperação. Tente novamente.');
+        throw error;
+      }
+
       toast.success(`Link de recuperação enviado para ${email}. Verifique sua caixa de entrada.`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na recuperação de senha:', error);
-      toast.error('Falha no envio do link de recuperação. Tente novamente.');
+      toast.error(error.message || 'Falha no envio do link de recuperação. Tente novamente.');
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Função de logout
-  const logout = () => {
-    localStorage.removeItem('tubepro_user');
-    setUser(null);
-    toast.info('Você foi desconectado');
+  // Função de logout com Supabase
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(error.message || 'Falha ao desconectar.');
+        throw error;
+      }
+      setUser(null);
+      toast.info('Você foi desconectado');
+    } catch (error: any) {
+      console.error('Erro ao fazer logout:', error);
+      // Evita duplicidade de toast se o erro já foi exibido acima
+      if (!error.message) {
+        toast.error('Ocorreu um erro inesperado ao fazer logout. Tente novamente.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const value = {

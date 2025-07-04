@@ -7,7 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Key, LogIn, UserPlus } from 'lucide-react';
+import { Key, LogIn, UserPlus } from 'lucide-react';
 import BackButton from '@/components/BackButton';
 
 const Login: React.FC = () => {
@@ -20,10 +20,10 @@ const Login: React.FC = () => {
   const { login, register, resetPassword, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Obter o estado de redirecionamento se disponível
   const from = location.state?.from?.pathname || '/';
-  
+
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (user) {
@@ -33,7 +33,7 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (isLogin) {
         await login(email, password);
@@ -60,7 +60,7 @@ const Login: React.FC = () => {
       toast.error('Por favor, insira seu email');
       return;
     }
-    
+
     try {
       await resetPassword(resetEmail);
       setIsResetPasswordOpen(false);
@@ -81,7 +81,7 @@ const Login: React.FC = () => {
           <h1 className="text-4xl font-bold text-gradient mb-2">TubePro</h1>
           <p className="text-white/60">Sua plataforma para crescer no YouTube</p>
         </div>
-        
+
         <Card className="bg-tubepro-darkAccent border-white/10 text-white">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -89,8 +89,8 @@ const Login: React.FC = () => {
               {isLogin ? <LogIn className="text-tubepro-red" size={24} /> : <UserPlus className="text-tubepro-yellow" size={24} />}
             </div>
             <CardDescription className="text-white/60">
-              {isLogin 
-                ? 'Entre com suas credenciais para acessar sua conta' 
+              {isLogin
+                ? 'Entre com suas credenciais para acessar sua conta'
                 : 'Preencha os campos abaixo para criar sua conta'}
             </CardDescription>
           </CardHeader>
@@ -98,9 +98,9 @@ const Login: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">
+                  <Label htmlFor="name">
                     Nome
-                  </label>
+                  </Label>
                   <Input
                     id="name"
                     type="text"
@@ -109,14 +109,15 @@ const Login: React.FC = () => {
                     placeholder="Digite seu nome"
                     className="bg-tubepro-dark border-white/10"
                     required={!isLogin}
+                    autoComplete="name" // CORRIGIDO: autocomplete para autoComplete
                   />
                 </div>
               )}
-              
+
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email">
                   Email
-                </label>
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -125,13 +126,14 @@ const Login: React.FC = () => {
                   placeholder="Digite seu email"
                   className="bg-tubepro-dark border-white/10"
                   required
+                  autoComplete="email" // CORRIGIDO: autocomplete para autoComplete
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password">
                   Senha
-                </label>
+                </Label>
                 <Input
                   id="password"
                   type="password"
@@ -140,24 +142,25 @@ const Login: React.FC = () => {
                   placeholder="Digite sua senha"
                   className="bg-tubepro-dark border-white/10"
                   required
+                  autoComplete={isLogin ? "current-password" : "new-password"} // CORRIGIDO: autocomplete para autoComplete
                 />
               </div>
-              
+
               <Button
                 type="submit"
                 className="w-full btn-gradient hover:opacity-90"
                 disabled={isLoading}
               >
-                {isLoading 
-                  ? 'Processando...' 
+                {isLoading
+                  ? 'Processando...'
                   : isLogin ? 'Entrar' : 'Criar Conta'}
               </Button>
-              
+
               {isLogin && (
                 <div className="text-sm text-center mt-2">
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setIsResetPasswordOpen(true)} 
+                    onClick={() => setIsResetPasswordOpen(true)}
                     className="text-tubepro-red hover:underline inline-flex items-center gap-1"
                   >
                     <Key size={14} />
@@ -168,20 +171,20 @@ const Login: React.FC = () => {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={toggleAuthMode}
               className="text-white/70 hover:text-white w-full"
             >
-              {isLogin 
-                ? 'Não tem uma conta? Registre-se' 
+              {isLogin
+                ? 'Não tem uma conta? Registre-se'
                 : 'Já tem uma conta? Faça login'}
             </Button>
-            
+
             <BackButton to="/" className="w-full justify-center" />
           </CardFooter>
         </Card>
-        
+
         <div className="mt-6 text-center text-sm text-white/40">
           <p>
             Ao continuar, você concorda com os{' '}
@@ -216,6 +219,7 @@ const Login: React.FC = () => {
                 placeholder="Digite seu email de registro"
                 className="bg-tubepro-dark border-white/10"
                 required
+                autoComplete="email" // CORRIGIDO: autocomplete para autoComplete
               />
             </div>
             <div className="flex justify-end gap-2">

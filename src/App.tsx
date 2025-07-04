@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +14,7 @@ import Profile from "./pages/Profile";
 import { AuthProvider } from "./hooks/useAuth";
 import React from 'react';
 import ProtectedRoute from "./components/ProtectedRoute";
+import ResetPassword from "./pages/ResetPassword";
 
 // Estilo global para a aplicação
 import './index.css';
@@ -41,10 +41,11 @@ const App = () => {
               <Routes>
                 {/* Rotas públicas */}
                 <Route path="/login" element={<Login />} />
-                
+                <Route path="/update-password" element={<ResetPassword />} />
+
                 {/* Rota de logout para redirecionamento */}
                 <Route path="/logout" element={<Navigate to="/login" />} />
-                
+
                 {/* Rotas protegidas */}
                 <Route path="/" element={
                   <ProtectedRoute>
@@ -76,7 +77,7 @@ const App = () => {
                     <Profile />
                   </ProtectedRoute>
                 } />
-                
+
                 {/* Rota de fallback */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

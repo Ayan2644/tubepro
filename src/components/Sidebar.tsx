@@ -1,25 +1,30 @@
 import React from 'react';
-import { 
-  Lightbulb, 
-  FilePen, 
-  Youtube, 
-  Settings, 
-  Users, 
+import {
+  Lightbulb,
+  FilePen,
+  Youtube,
+  Settings,
+  Users as UsersIcon, // Renomeado para evitar conflito com 'User' do useAuth
   DollarSign,
-  BarChart, 
+  BarChart,
   Menu,
   Bot,
   LogIn,
   User,
-  LogOut
+  LogOut,
+  X // Importado para o botão de fechar do Sheet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { Sheet, SheetContent } from '@/components/ui/sheet'; // Importado para o menu mobile
 
+// Adicionamos os novos props para controle mobile
 type SidebarProps = {
   collapsed: boolean;
   toggleCollapsed: () => void;
+  mobileSidebarOpen: boolean;
+  setMobileSidebarOpen: (open: boolean) => void;
 };
 
 // Define proper interfaces for our menu items
@@ -41,11 +46,16 @@ interface NavItem extends BaseMenuItem {
 
 type MenuItem = HeadingItem | NavItem;
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, toggleCollapsed }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  collapsed,
+  toggleCollapsed,
+  mobileSidebarOpen, // Novo prop
+  setMobileSidebarOpen // Novo prop
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  
+
   // Itens do menu que exigem autenticação
   const authenticatedItems: MenuItem[] = [
     {
@@ -96,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, toggleCollapsed }) => {
     },
     {
       title: 'Community',
-      icon: <Users size={22} />,
+      icon: <UsersIcon size={22} />, // Usando UsersIcon aqui
       isActive: false,
       path: '/community'
     },
@@ -107,7 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, toggleCollapsed }) => {
       path: '/billing'
     }
   ];
-  
+
   // Itens do menu relacionados à conta
   const accountItems: MenuItem[] = [
     {
@@ -116,7 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, toggleCollapsed }) => {
       isHeading: true
     }
   ];
-  
+
   // Adiciona os itens com base no estado de autenticação
   if (user) {
     accountItems.push({
@@ -148,12 +158,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, toggleCollapsed }) => {
     if ('isHeading' in item && item.isHeading) {
       return; // Headings aren't clickable
     }
-    
+
     const navItem = item as NavItem;
     if (navItem.action) {
       navItem.action();
     } else {
       navigate(navItem.path);
+    }
+    // Fechar a sidebar móvel após clicar em um item
+    if (mobileSidebarOpen) {
+      setMobileSidebarOpen(false);
     }
   };
 
@@ -161,65 +175,119 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, toggleCollapsed }) => {
   const sidebarItems = user ? [...authenticatedItems, ...accountItems] : accountItems;
 
   return (
-    <div 
-      className={cn(
-        'fixed top-0 left-0 h-full bg-tubepro-darkAccent border-r border-white/10 transition-all duration-300 z-20',
-        collapsed ? 'w-16' : 'w-64'
-      )}
-    >
-      <div className="flex items-center justify-between p-4">
-        <div className={cn(
-          'flex items-center space-x-3 transition-all duration-300',
-          collapsed && 'opacity-0 invisible'
-        )}>
-          <span className="text-xl font-bold text-gradient" onClick={() => navigate('/')}>TubePro</span>
+    <>
+      {/* Sidebar para Desktop (fixa, colapsável) */}
+      <div
+        className={cn(
+          'fixed top-0 left-0 h-full bg-tubepro-darkAccent border-r border-white/10 transition-all duration-300 z-20',
+          'hidden md:block', // Esconde em mobile, mostra a partir de md
+          collapsed ? 'w-16' : 'w-64'
+        )}
+      >
+        <div className="flex items-center justify-between p-4">
+          <div className={cn(
+            'flex items-center space-x-3 transition-all duration-300',
+            collapsed && 'opacity-0 invisible'
+          )}>
+            <span className="text-xl font-bold text-gradient" onClick={() => navigate('/')}>TubePro</span>
+          </div>
+          <button
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            onClick={toggleCollapsed}
+          >
+            <Menu size={20} />
+          </button>
         </div>
-        <button 
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors" 
-          onClick={toggleCollapsed}
-        >
-          <Menu size={20} />
-        </button>
+
+        <div className="mt-6 px-2 pb-6">
+          {sidebarItems.map((item, idx) => (
+            'isHeading' in item && item.isHeading ? (
+              <div
+                key={idx}
+                className={cn(
+                  'px-4 pt-6 pb-2 text-xs uppercase font-semibold text-white/40 tracking-wider',
+                  collapsed && 'hidden'
+                )}
+              >
+                {item.title}
+              </div>
+            ) : (
+              <div
+                key={idx}
+                className={cn(
+                  'flex items-center space-x-3 px-3 py-3 mb-1 rounded-lg cursor-pointer transition-colors',
+                  'isActive' in item && item.isActive ? 'bg-gradient-to-r from-tubepro-red to-tubepro-yellow text-white' : 'hover:bg-white/10'
+                )}
+                onClick={() => handleItemClick(item)}
+              >
+                <div className={cn(
+                  'flex items-center justify-center',
+                  !item.isActive && 'text-white/70'
+                )}>
+                  {item.icon}
+                </div>
+                <span className={cn(
+                  'font-medium transition-all duration-300',
+                  collapsed && 'opacity-0 invisible'
+                )}>
+                  {item.title}
+                </span>
+              </div>
+            )
+          ))}
+        </div>
       </div>
 
-      <div className="mt-6 px-2 pb-6">
-        {sidebarItems.map((item, idx) => (
-          'isHeading' in item && item.isHeading ? (
-            <div 
-              key={idx} 
-              className={cn(
-                'px-4 pt-6 pb-2 text-xs uppercase font-semibold text-white/40 tracking-wider',
-                collapsed && 'hidden'
-              )}
-            >
-              {item.title}
+      {/* Sidebar para Mobile (Sheet deslizante) */}
+      <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+        <SheetContent side="left" className="w-64 bg-tubepro-darkAccent border-r border-white/10 p-0">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center space-x-3">
+              <span className="text-xl font-bold text-gradient" onClick={() => { navigate('/'); setMobileSidebarOpen(false); }}>TubePro</span>
             </div>
-          ) : (
-            <div 
-              key={idx} 
-              className={cn(
-                'flex items-center space-x-3 px-3 py-3 mb-1 rounded-lg cursor-pointer transition-colors',
-                'isActive' in item && item.isActive ? 'bg-gradient-to-r from-tubepro-red to-tubepro-yellow text-white' : 'hover:bg-white/10'
-              )}
-              onClick={() => handleItemClick(item)}
+            {/* Botão de fechar para o Sheet */}
+            <button
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              onClick={() => setMobileSidebarOpen(false)}
             >
-              <div className={cn(
-                'flex items-center justify-center',
-                !('isActive' in item && item.isActive) && 'text-white/70'
-              )}>
-                {item.icon}
-              </div>
-              <span className={cn(
-                'font-medium transition-all duration-300',
-                collapsed && 'opacity-0 invisible'
-              )}>
-                {item.title}
-              </span>
-            </div>
-          )
-        ))}
-      </div>
-    </div>
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="mt-6 px-2 pb-6">
+            {sidebarItems.map((item, idx) => (
+              'isHeading' in item && item.isHeading ? (
+                <div
+                  key={idx}
+                  className="px-4 pt-6 pb-2 text-xs uppercase font-semibold text-white/40 tracking-wider"
+                >
+                  {item.title}
+                </div>
+              ) : (
+                <div
+                  key={idx}
+                  className={cn(
+                    'flex items-center space-x-3 px-3 py-3 mb-1 rounded-lg cursor-pointer transition-colors',
+                    item.isActive ? 'bg-gradient-to-r from-tubepro-red to-tubepro-yellow text-white' : 'hover:bg-white/10'
+                  )}
+                  onClick={() => handleItemClick(item)} // handleItemClick já fecha o mobileSidebar
+                >
+                  <div className={cn(
+                    'flex items-center justify-center',
+                    !item.isActive && 'text-white/70'
+                  )}>
+                    {item.icon}
+                  </div>
+                  <span className="font-medium">
+                    {item.title}
+                  </span>
+                </div>
+              )
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };
 
