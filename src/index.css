@@ -1,0 +1,241 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --tubepro-dark: #121212;
+  --tubepro-darkAccent: #1E1E1E;
+  --tubepro-red: #ed1b22;
+  --tubepro-yellow: #fbe501;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--tubepro-dark);
+  color: white;
+}
+
+/* Gradiente para textos */
+.text-gradient {
+  background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+/* Gradiente para botões */
+.btn-gradient {
+  background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
+}
+
+/* Hover effect para cards */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(237, 27, 34, 0.15);
+}
+
+/* Estilos para textarea e input */
+textarea, input {
+  background-color: var(--tubepro-dark) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+textarea:focus, input:focus {
+  border-color: var(--tubepro-red) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(237, 27, 34, 0.2) !important;
+}
+
+/* Sidebar ativa */
+[data-active=true] {
+  background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow)) !important;
+  color: white !important;
+}
+
+/* Animação para o fundo do banner */
+.bg-animate {
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Animações para elementos de gamificação */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Estilos para o sistema de gamificação */
+.level-badge {
+  background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: bold;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  box-shadow: 0 4px 12px rgba(237, 27, 34, 0.3);
+}
+
+.achievement {
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.03);
+  transition: all 0.2s ease;
+}
+
+.achievement:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.achievement-complete {
+  background: linear-gradient(45deg, rgba(237, 27, 34, 0.1), rgba(251, 229, 1, 0.1));
+  border-color: rgba(237, 27, 34, 0.3);
+}
+
+/* Classes para o sistema de autenticação */
+.auth-form {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 2rem;
+  border-radius: 1rem;
+  background-color: var(--tubepro-darkAccent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  background-color: var(--tubepro-dark);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Estilos para o sistema de Tubecoins */
+.coin {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(45deg, var(--tubepro-yellow), #ffcd38);
+  border-radius: 9999px;
+  padding: 0.25rem 0.5rem;
+  color: black;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(251, 229, 1, 0.3);
+}
+
+.coin-icon {
+  color: var(--tubepro-dark);
+  margin-right: 0.25rem;
+}
+
+/* Pulsação para coins */
+@keyframes coin-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.coin-pulse {
+  animation: coin-pulse 2s ease-in-out infinite;
+}
+
+/* Brilho para conquistas */
+@keyframes shine {
+  0% {
+    background-position: -100px;
+  }
+  40%, 100% {
+    background-position: 300px;
+  }
+}
+
+.achievement-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.achievement-shine::after {
+  content: '';
+  position: absolute;
+  top: -110%;
+  left: -200%;
+  width: 200%;
+  height: 200%;
+  opacity: 0;
+  transform: rotate(30deg);
+  background: rgba(255, 255, 255, 0.13);
+  background: linear-gradient(
+    to right, 
+    rgba(255, 255, 255, 0.13) 0%,
+    rgba(255, 255, 255, 0.13) 77%,
+    rgba(255, 255, 255, 0.5) 92%,
+    rgba(255, 255, 255, 0.0) 100%
+  );
+}
+
+.achievement-shine:hover::after {
+  opacity: 1;
+  top: -30%;
+  left: -30%;
+  transition-property: left, top, opacity;
+  transition-duration: 0.7s, 0.7s, 0.15s;
+  transition-timing-function: ease;
+}
