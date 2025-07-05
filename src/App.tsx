@@ -15,6 +15,7 @@ import { AuthProvider } from "./hooks/useAuth";
 import React from 'react';
 import ProtectedRoute from "./components/ProtectedRoute";
 import ResetPassword from "./pages/ResetPassword";
+import Historico from "./pages/Historico"; // <-- 1. IMPORTAR A NOVA PÁGINA
 
 // Estilo global para a aplicação
 import './index.css';
@@ -75,6 +76,13 @@ const App = () => {
                 <Route path="/profile" element={
                   <ProtectedRoute>
                     <Profile />
+                  </ProtectedRoute>
+                } />
+                
+                {/* 2. ADICIONAR A NOVA ROTA PARA O HISTÓRICO */}
+                <Route path="/historico" element={
+                  <ProtectedRoute>
+                    <Historico />
                   </ProtectedRoute>
                 } />
 

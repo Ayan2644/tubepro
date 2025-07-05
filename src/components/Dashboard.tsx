@@ -61,7 +61,7 @@ const Dashboard: React.FC = () => {
       title: 'Histórico de Roteiros',
       icon: <FolderArchive />,
       path: '/historico',
-      description: 'Acesse seus roteiros anteriores'
+      description: 'Acesse e edite seus roteiros anteriores'
     }
   ];
 
@@ -110,7 +110,9 @@ const Dashboard: React.FC = () => {
   ];
 
   const handleToolClick = (path: string) => {
-    if (path === '/ideias' || path === '/roteiro' || path === '/assistente' || path === '/transcricao') {
+    // ATUALIZADO PARA INCLUIR A NOVA ROTA
+    const availablePaths = ['/ideias', '/roteiro', '/assistente', '/transcricao', '/historico'];
+    if (availablePaths.includes(path)) {
       navigate(path);
     } else {
       toast.info("Esta funcionalidade estará disponível em breve!");
