@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getSupabaseClient } from '@/lib/supabase';
+// MUDANÇA IMPORTANTE: Importamos a instância 'supabase' diretamente
+import { supabase } from '@/lib/supabase';
 import { ContentPlanDisplay } from '@/components/ContentPlanDisplay';
 import PageHeader from '@/components/PageHeader';
 import { Save, Sparkles } from 'lucide-react';
@@ -47,7 +48,6 @@ const Ideias: React.FC = () => {
     setContentPlan(null);
 
     try {
-      const supabase = getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Usuário não autenticado.");
 
@@ -136,8 +136,6 @@ ${contentPlan.scriptStructure.mainPoints.join('\n\n')}
 ${contentPlan.scriptStructure.cta}
 `;
 
-    const supabase = getSupabaseClient();
-
     const { error } = await supabase.from('scripts').insert({
         user_id: user.id,
         title: scriptTitle,
@@ -167,7 +165,7 @@ ${contentPlan.scriptStructure.cta}
         title="Mestre de Conteúdo IA"
         description="Transforme uma simples ideia em um plano de conteúdo completo, com títulos, descrições, tags e uma estrutura de roteiro otimizada para engajamento."
       />
-      
+
       <Card className="bg-tubepro-darkAccent border-white/10 text-white mb-8">
         <CardHeader>
           <CardTitle>Gere um Plano de Conteúdo Completo</CardTitle>
@@ -192,7 +190,7 @@ ${contentPlan.scriptStructure.cta}
       </Card>
 
       {isLoading && renderLoadingSkeleton()}
-      
+
       {contentPlan && !isLoading && (
         <>
           <ContentPlanDisplay contentPlan={contentPlan} />
@@ -204,7 +202,26 @@ ${contentPlan.scriptStructure.cta}
           </div>
         </>
       )}
-      <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>{/* ...código do dialog... */}</Dialog>
+      <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+        <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">
+            <DialogHeader>
+                <DialogTitle>Salvar Plano como Roteiro</DialogTitle>
+                <DialogDescription>Dê um nome ao seu roteiro para encontrá-lo facilmente no seu histórico.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Input
+                    placeholder="Ex: Roteiro sobre Marketing Digital V1"
+                    value={scriptTitle}
+                    onChange={(e) => setScriptTitle(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveScript(); }}
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => setIsSaveDialogOpen(false)}>Cancelar</Button>
+                <Button className="btn-gradient" onClick={handleSaveScript}>Salvar</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

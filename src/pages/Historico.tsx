@@ -8,12 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { getSupabaseClient } from '@/lib/supabase';
+// MUDANÇA IMPORTANTE: Importamos a instância 'supabase' diretamente
+import { supabase } from '@/lib/supabase';
 import { FileText, Edit, Trash2, Loader2, Expand } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import PageHeader from '@/components/PageHeader'; // IMPORTANDO O NOVO CABEÇALHO
+import PageHeader from '@/components/PageHeader';
 
 interface Script {
   id: string;
@@ -33,7 +34,7 @@ const Historico: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const { user } = useAuth();
-  const supabase = getSupabaseClient();
+  // A linha "const supabase = getSupabaseClient()" foi removida daqui.
 
   const fetchScripts = useCallback(async () => {
     if (!user) return;
@@ -50,7 +51,7 @@ const Historico: React.FC = () => {
       setScripts(data as Script[]);
     }
     setIsLoading(false);
-  }, [user, supabase]);
+  }, [user]);
 
   useEffect(() => {
     fetchScripts();
@@ -102,13 +103,11 @@ const Historico: React.FC = () => {
 
   return (
     <>
-      {/* NOVO CABEÇALHO APLICADO AQUI */}
       <PageHeader
         title={<>Histórico de <span className="text-white font-bold">Projetos</span></>}
         description="Acesse, edite e gerencie todos os seus roteiros e planos de conteúdo salvos em um só lugar."
       />
 
-      {/* O RESTANTE DO CONTEÚDO DA PÁGINA PERMANECE IGUAL */}
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
             <Loader2 className="h-12 w-12 animate-spin text-tubepro-red" />
@@ -162,7 +161,7 @@ const Historico: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Modal de Exclusão */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">

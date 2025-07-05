@@ -1,3 +1,5 @@
+// src/pages/Login.tsx
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,10 +23,8 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Obter o estado de redirecionamento se disponível
   const from = location.state?.from?.pathname || '/';
 
-  // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (user) {
       navigate('/');
@@ -37,7 +37,6 @@ const Login: React.FC = () => {
     try {
       if (isLogin) {
         await login(email, password);
-        // Redirecionar para a página anterior ou para a home
         navigate(from);
         toast.success('Login realizado com sucesso!');
       } else {
@@ -46,11 +45,12 @@ const Login: React.FC = () => {
           return;
         }
         await register(name, email, password);
-        navigate('/');
-        toast.success('Conta criada com sucesso!');
+        // A lógica de navegação após o registro pode variar.
+        // Geralmente, o usuário precisará confirmar o e-mail.
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na autenticação:', error);
+      toast.error(error.message || 'Falha na autenticação.');
     }
   };
 
@@ -65,8 +65,9 @@ const Login: React.FC = () => {
       await resetPassword(resetEmail);
       setIsResetPasswordOpen(false);
       setResetEmail('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na recuperação de senha:', error);
+      toast.error(error.message || 'Falha ao enviar link de recuperação.');
     }
   };
 
@@ -109,7 +110,7 @@ const Login: React.FC = () => {
                     placeholder="Digite seu nome"
                     className="bg-tubepro-dark border-white/10"
                     required={!isLogin}
-                    autoComplete="name" // CORRIGIDO: autocomplete para autoComplete
+                    autoComplete="name"
                   />
                 </div>
               )}
@@ -126,7 +127,7 @@ const Login: React.FC = () => {
                   placeholder="Digite seu email"
                   className="bg-tubepro-dark border-white/10"
                   required
-                  autoComplete="email" // CORRIGIDO: autocomplete para autoComplete
+                  autoComplete="email"
                 />
               </div>
 
@@ -142,7 +143,7 @@ const Login: React.FC = () => {
                   placeholder="Digite sua senha"
                   className="bg-tubepro-dark border-white/10"
                   required
-                  autoComplete={isLogin ? "current-password" : "new-password"} // CORRIGIDO: autocomplete para autoComplete
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                 />
               </div>
 
@@ -199,11 +200,10 @@ const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* Dialog para recuperação de senha */}
       <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">
           <DialogHeader>
-            <DialogTitle className="text-xl">Recuperar senha</DialogTitle>
+            <DialogTitle>Recuperar senha</DialogTitle>
             <DialogDescription className="text-white/60">
               Insira seu email para receber um link de recuperação de senha.
             </DialogDescription>
@@ -219,7 +219,7 @@ const Login: React.FC = () => {
                 placeholder="Digite seu email de registro"
                 className="bg-tubepro-dark border-white/10"
                 required
-                autoComplete="email" // CORRIGIDO: autocomplete para autoComplete
+                autoComplete="email"
               />
             </div>
             <div className="flex justify-end gap-2">

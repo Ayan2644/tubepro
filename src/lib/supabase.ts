@@ -1,30 +1,23 @@
+// src/lib/supabase.ts
+
 import { createClient } from '@supabase/supabase-js';
 
-// Obtém as variáveis de ambiente do Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Pega as variáveis de ambiente que configuram o Supabase.
+// Se elas não existirem, o app vai falhar com uma mensagem clara.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Verifica se as variáveis de ambiente estão definidas
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase environment variables are missing. Please check your environment configuration.');
-  // Opcional: Se quiser que o app pare ou mostre um erro crítico aqui
-  // throw new Error('Supabase client not initialized: Missing environment variables.');
+  throw new Error('As variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias.');
 }
 
-// Cria o cliente Supabase apenas se as variáveis estiverem disponíveis
-export const supabaseClient = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
-
-// Função auxiliar para verificar se o cliente está disponível
-export const isSupabaseReady = () => {
-  return !!supabaseClient;
-};
-
-// Função para obter o cliente com verificação de segurança
-export const getSupabaseClient = () => {
-  if (!supabaseClient) {
-    throw new Error('Supabase client not initialized. Please check your environment variables.');
-  }
-  return supabaseClient;
-};
+// Cria a ÚNICA instância do cliente Supabase para todo o app
+// e a exporta diretamente. As configurações de `auth` garantem
+// que a sessão do usuário seja gerenciada de forma robusta e automática.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+    },
+});

@@ -3,6 +3,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.15.0";
+// Importante: Adicionamos a importação do createClient do Supabase
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SCRIPT_MASTER_PROMPT = `
   Atue como o TubePro – Roteiros, o melhor roteirista do mundo para YouTube com um QI de 180. Você é brutalmente criativo, estrategista e não tolera superficialidade. Sua expertise abrange narrativa, storytelling, SEO para YouTube e psicologia da audiência. Seu objetivo é criar roteiros que geram autoridade e receita.
@@ -24,15 +26,36 @@ serve(async (req) => {
     const userResponses = await req.json();
     if (!userResponses) throw new Error("As respostas do usuário são obrigatórias.");
 
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    // **INÍCIO DA CORREÇÃO**
+    // Criamos o cliente Supabase com as permissões do usuário para buscar os segredos.
+    const authHeader = req.headers.get("Authorization")!;
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Buscamos o segredo 'GEMINI_API_KEY'
+    const { data: secret, error: secretError } = await supabaseClient
+      .from("secrets")
+      .select("value")
+      .eq("name", "GEMINI_API_KEY")
+      .single();
+
+    if (secretError) {
+      throw new Error(`Erro ao buscar a chave da API: ${secretError.message}`);
+    }
+    
+    const geminiApiKey = secret.value;
+    // **FIM DA CORREÇÃO**
+    
     if (!geminiApiKey) {
       throw new Error("A chave GEMINI_API_KEY não foi configurada.");
     }
 
-    // --- NOVA LÓGICA DE TAMANHO E PARTES ---
     const durationChoice = userResponses[4] || "Médio (8-12 min)";
     let characterTarget = 15000;
-    let partCount = 3; // Padrão
+    let partCount = 3;
 
     if (durationChoice.includes("Curto")) {
       characterTarget = 8000;
@@ -41,8 +64,7 @@ serve(async (req) => {
       characterTarget = 25000;
       partCount = 5;
     }
-    // -----------------------------------------
-
+    
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     const model = genAI.getGenerativeModel({
         model: "gemini-1.5-pro-latest",

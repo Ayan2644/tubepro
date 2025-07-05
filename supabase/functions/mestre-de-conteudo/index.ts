@@ -3,6 +3,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.15.0";
+// Importante: Adicionamos a importação do createClient do Supabase
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MASTER_PROMPT = `
   VOCÊ É O TubePro, um especialista mundial em SEO e roteiros para o YouTube. Sua tarefa é gerar um plano de conteúdo completo.
@@ -31,25 +33,44 @@ serve(async (req) => {
     const { topic, audience } = await req.json();
     if (!topic) throw new Error("O tópico do vídeo é obrigatório.");
 
-    // Obtenha a chave da API do Gemini das variáveis de ambiente
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) {
-      throw new Error("A chave GEMINI_API_KEY não foi configurada nas variáveis de ambiente do Supabase.");
+    // **A GRANDE MUDANÇA ESTÁ AQUI**
+    // Para acessar os segredos, precisamos usar um cliente Supabase com as permissões do usuário.
+    const authHeader = req.headers.get("Authorization")!;
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Agora buscamos o segredo 'GEMINI_API_KEY' que você salvou no painel do Supabase.
+    // Esta forma é mais segura.
+    const { data: secret, error: secretError } = await supabaseClient
+      .from("secrets")
+      .select("value")
+      .eq("name", "GEMINI_API_KEY")
+      .single();
+
+    if (secretError) {
+      throw new Error(`Erro ao buscar a chave da API: ${secretError.message}`);
     }
 
-    // Inicialize o cliente do Google Generative AI
+    const geminiApiKey = secret.value;
+    // **FIM DA MUDANÇA**
+
+    if (!geminiApiKey) {
+      throw new Error("A chave GEMINI_API_KEY não foi encontrada.");
+    }
+
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash", // Modelo rápido e eficiente
+        model: "gemini-1.5-flash",
         systemInstruction: MASTER_PROMPT,
     });
 
     const userPrompt = `Tópico do vídeo: "${topic}". Público-alvo: "${audience || 'Geral'}".`;
     
-    // Gere o conteúdo com streaming
     const result = await model.generateContentStream(userPrompt);
 
-    // Crie um ReadableStream para enviar a resposta ao cliente
     const stream = new ReadableStream({
       async start(controller) {
         for await (const chunk of result.stream) {

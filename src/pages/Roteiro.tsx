@@ -9,10 +9,11 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { getSupabaseClient } from '@/lib/supabase';
+// MUDANÇA IMPORTANTE: Importamos a instância 'supabase' diretamente
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { marked } from 'marked';
-import PageHeader from '@/components/PageHeader'; // IMPORTANDO O NOVO CABEÇALHO
+import PageHeader from '@/components/PageHeader';
 
 // --- Tipos e Estruturas de Dados ---
 type Stage = 'asking' | 'generating' | 'revealing' | 'finished';
@@ -41,7 +42,7 @@ const ScriptPart: React.FC<{ content: string }> = ({ content }) => {
         });
     };
     const rawMarkup = marked.parse(content.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/,""));
-    
+
     return (
         <div className="relative group pb-4 mb-4 border-b border-dashed border-white/10">
             <Button size="icon" variant="ghost" onClick={handleCopy} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
@@ -76,7 +77,6 @@ const Roteiro: React.FC = () => {
     setIsLoading(true); setScriptParts([]); setRevealedScriptParts(0); setStage('generating');
     let accumulatedResponse = '';
     try {
-      const supabase = getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Usuário não autenticado.");
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/roteirista-ia`, {
@@ -151,7 +151,6 @@ const Roteiro: React.FC = () => {
     }
 
     const fullScript = scriptParts.join('\n\n---PART-BREAK---\n\n');
-    const supabase = getSupabaseClient();
 
     const { error } = await supabase.from('scripts').insert({
         user_id: user.id,
@@ -170,7 +169,6 @@ const Roteiro: React.FC = () => {
 
   return (
     <>
-      {/* NOVO CABEÇALHO APLICADO AQUI */}
       <PageHeader
         title={
           <>
@@ -179,8 +177,7 @@ const Roteiro: React.FC = () => {
         }
         description="Responda um briefing estratégico e receba um roteiro profundo e conversacional, pronto para ser gravado."
       />
-      
-      {/* O RESTANTE DO CONTEÚDO DA PÁGINA PERMANECE IGUAL */}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-tubepro-darkAccent border-white/10 text-white">
             <CardHeader>

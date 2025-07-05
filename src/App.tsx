@@ -8,7 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import React from 'react';
 
 // Importações de Componentes e Páginas
-import Layout from "./components/Layout"; // <-- IMPORTANDO O NOVO LAYOUT
+import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Dashboard from "./components/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -34,46 +34,52 @@ const queryClient = new QueryClient({
   },
 });
 
+// **NOVA ESTRUTURA**
+// Criamos um componente apenas para as rotas.
+const AppRoutes = () => {
+    return (
+        <BrowserRouter>
+          <Routes>
+            {/* Rotas públicas que não usam o layout principal */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/update-password" element={<ResetPassword />} />
+            <Route path="/logout" element={<Navigate to="/login" />} />
+
+            {/* Rotas Protegidas que agora usam o Layout como pai */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="assistente" element={<Assistente />} />
+              <Route path="ideias" element={<Ideias />} />
+              <Route path="roteiro" element={<Roteiro />} />
+              <Route path="transcricao" element={<Transcricao />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="historico" element={<Historico />} />
+            </Route>
+
+            {/* Rota de fallback */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+    )
+}
+
+// O componente App agora SÓ gerencia os provedores.
 const App = () => {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <AuthProvider>  {/* <- O AuthProvider agora envolve TUDO */}
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Rotas públicas que não usam o layout principal */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/update-password" element={<ResetPassword />} />
-                <Route path="/logout" element={<Navigate to="/login" />} />
-
-                {/* Rotas Protegidas que agora usam o Layout como pai */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Layout />
-                    </ProtectedRoute>
-                  }
-                >
-                  {/* A rota "index" renderiza o Dashboard dentro do Layout */}
-                  <Route index element={<Dashboard />} /> 
-                  
-                  {/* As outras rotas também serão renderizadas dentro do Layout */}
-                  <Route path="assistente" element={<Assistente />} />
-                  <Route path="ideias" element={<Ideias />} />
-                  <Route path="roteiro" element={<Roteiro />} />
-                  <Route path="transcricao" element={<Transcricao />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="historico" element={<Historico />} />
-                </Route>
-
-                {/* Rota de fallback */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
+            <AppRoutes /> {/* <- As rotas são carregadas aqui dentro */}
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>

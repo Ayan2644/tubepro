@@ -1,16 +1,18 @@
+// src/pages/ResetPassword.tsx
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { getSupabaseClient } from '@/lib/supabase';
+// MUDANÇA IMPORTANTE: Importamos a instância 'supabase' diretamente
+import { supabase } from '@/lib/supabase';
 import { Key } from 'lucide-react';
 import BackButton from '@/components/BackButton';
 
 const ResetPassword: React.FC = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,21 +20,13 @@ const ResetPassword: React.FC = () => {
   const [isTokenValid, setIsTokenValid] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const supabase = getSupabaseClient();
-
-  // Este useEffect verifica se há uma sessão válida após o redirecionamento do e-mail.
-  // O Supabase, ao redirecionar, já tenta estabelecer a sessão.
   useEffect(() => {
     const checkSession = async () => {
       setIsLoading(true);
       try {
-        // Tenta obter a sessão atual. Se o usuário veio de um link de redefinição de senha,
-        // o Supabase já deve ter processado o token e estabelecido a sessão.
         const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         if (session) {
           setIsTokenValid(true);
@@ -51,7 +45,7 @@ const ResetPassword: React.FC = () => {
     };
 
     checkSession();
-  }, [supabase]);
+  }, []);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,23 +67,20 @@ const ResetPassword: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Atualiza a senha do usuário logado na sessão de redefinição
       const { error } = await supabase.auth.updateUser({
         password: password,
       });
 
       if (error) {
-        console.error('Erro ao redefinir senha:', error);
-        toast.error(error.message || 'Ocorreu um erro ao redefinir sua senha.');
-        setErrorMessage(error.message || 'Erro ao redefinir senha.');
-        return;
+        throw error;
       }
 
       toast.success('Sua senha foi redefinida com sucesso! Você já pode fazer login.');
-      navigate('/login'); // Redireciona para a página de login
-    } catch (error) {
-      console.error('Erro inesperado ao redefinir senha:', error);
-      toast.error('Ocorreu um erro inesperado ao redefinir sua senha.');
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Erro ao redefinir senha:', error);
+      toast.error(error.message || 'Ocorreu um erro ao redefinir sua senha.');
+      setErrorMessage(error.message || 'Erro ao redefinir senha.');
     } finally {
       setIsLoading(false);
     }

@@ -1,31 +1,29 @@
 // src/pages/Transcricao.tsx
 
 import React, { useState } from 'react';
-import { Youtube, UploadCloud, Copy, Check, FileAudio, Save } from 'lucide-react';
+import { Youtube, UploadCloud, Copy, Check, Save, Loader2, FileAudio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
-import ApiKeyInstructions from '@/components/ApiKeyInstructions';
-import { transcribeYoutubeVideo, transcribeVideoFile } from '@/services/api';
 import { TranscriptionResult, extractYoutubeVideoId } from '@/utils/transcriptionService';
 import { useAuth } from '@/hooks/useAuth';
-import { getSupabaseClient } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import PageHeader from '@/components/PageHeader'; // IMPORTANDO O NOVO CABEÇALHO
+import PageHeader from '@/components/PageHeader';
 
 const Transcricao: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [transcription, setTranscription] = useState<TranscriptionResult | null>(null);
   const [copied, setCopied] = useState(false);
-  const { user, spendCoins } = useAuth();
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [scriptTitle, setScriptTitle] = useState('');
-  const supabase = getSupabaseClient();
+
+  const { user, spendCoins, isLoading: isAuthLoading } = useAuth();
 
   const simulateProgress = () => {
     setProgress(0);
@@ -37,80 +35,61 @@ const Transcricao: React.FC = () => {
         }
         return prev + 5;
       });
-    }, 300);
+    }, 150);
     return () => clearInterval(interval);
   };
 
   const handleYoutubeTranscription = async () => {
+    if (isAuthLoading) {
+      toast.info("Aguarde, autenticando sua sessão...");
+      return;
+    }
+    if (!user) {
+      toast.error("Você precisa estar logado para usar esta ferramenta.");
+      return;
+    }
     if (!extractYoutubeVideoId(youtubeUrl)) {
-      toast.error('Por favor, insira uma URL válida do YouTube');
+      toast.error('Por favor, insira uma URL válida do YouTube.');
       return;
     }
-    if (!spendCoins(25, 'Transcrição de Vídeo')) {
-      toast.error('Tubecoins insuficientes para realizar a transcrição');
+
+    setIsProcessing(true);
+
+    const hasSpentCoins = await spendCoins(5, 'Transcrição de Vídeo');
+    if (!hasSpentCoins) {
+      setIsProcessing(false);
       return;
     }
-    setIsLoading(true);
+
     const clearProgressInterval = simulateProgress();
     try {
-      const result = await transcribeYoutubeVideo(youtubeUrl);
-      setTranscription(result);
-      setProgress(100);
-      toast.success('Transcrição concluída com sucesso!');
-    } catch (error: any) {
-      console.error('Erro na transcrição:', error);
-      toast.error('Erro ao transcrever o vídeo.', {
-        description: error.message || 'Tente novamente mais tarde.',
+      const { data, error } = await supabase.functions.invoke('transcritor-ia', {
+        body: JSON.stringify({ videoURL: youtubeUrl }),
       });
+      
+      if (error) throw error;
+
+      if (data.error) throw new Error(data.error);
+      
+      setTranscription({ text: data.transcription });
+      setProgress(100);
+      toast.success('Transcrição concluída!');
+
+    } catch (error: any) {
+      toast.error('Erro ao transcrever.', { description: error.message || 'Tente novamente.' });
     } finally {
       clearProgressInterval();
-      setIsLoading(false);
+      setIsProcessing(false);
     }
   };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    if (!file.type.includes('video/') && !file.type.includes('audio/')) {
-      toast.error('Por favor, selecione um arquivo de vídeo ou áudio válido');
-      return;
-    }
-    const estimatedCost = Math.ceil(file.size / (10 * 1024 * 1024)) * 10;
-    if (!spendCoins(estimatedCost, 'Transcrição de Arquivo')) {
-      toast.error('Tubecoins insuficientes para realizar a transcrição');
-      return;
-    }
-    setIsLoading(true);
-    const clearProgressInterval = simulateProgress();
-    try {
-      const result = await transcribeVideoFile(file);
-      setTranscription(result);
-      setProgress(100);
-      toast.success('Arquivo transcrito com sucesso!');
-    } catch (error: any) {
-      console.error('Erro na transcrição:', error);
-      toast.error('Erro ao transcrever o arquivo.', {
-        description: error.message || 'Tente novamente mais tarde.',
-      });
-    } finally {
-      clearProgressInterval();
-      setIsLoading(false);
-    }
-  };
-
+  
   const copyToClipboard = () => {
     if (!transcription) return;
-    navigator.clipboard.writeText(transcription.text)
-      .then(() => {
-        setCopied(true);
-        toast.success('Transcrição copiada para a área de transferência!');
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {
-        toast.error('Erro ao copiar transcrição.');
-      });
+    navigator.clipboard.writeText(transcription.text).then(() => {
+      setCopied(true);
+      toast.success('Copiado para a área de transferência!');
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const resetTranscription = () => {
@@ -121,154 +100,78 @@ const Transcricao: React.FC = () => {
 
   const handleSaveScript = async () => {
     if (!scriptTitle.trim()) {
-        toast.error("Por favor, dê um título à sua transcrição.");
-        return;
+      toast.error("Por favor, dê um título ao seu roteiro.");
+      return;
     }
-    if (!user || !transcription) {
-        toast.error("Você precisa estar logado e ter uma transcrição para salvar.");
-        return;
-    }
+    if (!user || !transcription) return;
     const { error } = await supabase.from('scripts').insert({
-        user_id: user.id,
-        title: scriptTitle,
-        content: transcription.text
+      user_id: user.id,
+      title: scriptTitle,
+      content: transcription.text
     });
     if (error) {
-        toast.error("Falha ao salvar a transcrição.", { description: error.message });
+      toast.error("Falha ao salvar o roteiro.", { description: error.message });
     } else {
-        toast.success(`Transcrição "${scriptTitle}" salva com sucesso!`);
-        setIsSaveDialogOpen(false);
-        setScriptTitle('');
+      toast.success(`Roteiro "${scriptTitle}" salvo com sucesso!`);
+      setIsSaveDialogOpen(false);
+      setScriptTitle('');
     }
   };
 
-  const renderServiceInfo = () => (
-    <div className="mb-4 flex justify-between items-center">
-      <div className="flex items-center">
-        <span className={`w-3 h-3 rounded-full mr-2 bg-green-500`}></span>
-        <span className="text-sm">
-          Serviço de transcrição ativo
-        </span>
-      </div>
-      <ApiKeyInstructions service="OpenAI" />
-    </div>
-  );
-
-  const renderTranscriptionForm = () => (
-    <Tabs defaultValue="youtube" className="mb-6">
-      <TabsList className="mb-4 bg-tubepro-darkAccent">
-        <TabsTrigger value="youtube">URL do YouTube</TabsTrigger>
-        <TabsTrigger value="upload">Upload de Arquivo</TabsTrigger>
-      </TabsList>
-      <TabsContent value="youtube" className="bg-tubepro-darkAccent rounded-xl p-6">
-        <div className="mb-6">
-          <label htmlFor="youtube-url" className="block mb-2 font-medium">
-            Insira o URL do vídeo do YouTube
-          </label>
-          <Input
-            id="youtube-url"
-            placeholder="https://www.youtube.com/watch?v=..."
-            value={youtubeUrl}
-            onChange={(e) => setYoutubeUrl(e.target.value)}
-            className="bg-tubepro-dark border-white/10"
-          />
-        </div>
-        <Button
-          onClick={handleYoutubeTranscription}
-          disabled={isLoading}
-          className="btn-gradient w-full"
-        >
-          {isLoading ? 'Transcrevendo...' : 'Transcrever Vídeo'}
-        </Button>
-        {isLoading && (
-          <div className="mt-4">
-            <p className="text-sm text-white/70 mb-2">Extraindo áudio e transcrevendo...</p>
-            <Progress value={progress} className="h-2" indicatorClassName="bg-gradient-to-r from-tubepro-red to-tubepro-yellow" />
-          </div>
-        )}
-      </TabsContent>
-      <TabsContent value="upload" className="bg-tubepro-darkAccent rounded-xl p-6">
-        <div className="mb-6">
-          <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center">
-            <UploadCloud className="mx-auto mb-4 text-white/60 w-12 h-12" />
-            <p className="mb-2">Arraste e solte um arquivo de vídeo ou áudio, ou</p>
-            <div className="relative">
-              <input
-                type="file"
-                accept="video/*,audio/*"
-                onChange={handleFileUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                disabled={isLoading}
-              />
-              <Button variant="outline" className="mx-auto" disabled={isLoading}>
-                Selecione um arquivo
-              </Button>
-            </div>
-            <p className="mt-2 text-sm text-white/40">
-              Formatos suportados: MP4, MOV, AVI, WMV, MP3, WAV (máx. 500MB)
-            </p>
-          </div>
-        </div>
-        {isLoading && (
-          <div className="mt-4">
-            <p className="text-sm text-white/70 mb-2">Processando arquivo e transcrevendo...</p>
-            <Progress value={progress} className="h-2" indicatorClassName="bg-gradient-to-r from-tubepro-red to-tubepro-yellow" />
-          </div>
-        )}
-      </TabsContent>
-    </Tabs>
-  );
-
-  const renderTranscriptionResult = () => (
-    <div className="bg-tubepro-darkAccent rounded-xl p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Transcrição do Vídeo</h2>
-        <Button
-          variant="outline"
-          className="flex items-center gap-2"
-          onClick={copyToClipboard}
-        >
-          {copied ? <Check size={16} /> : <Copy size={16} />}
-          {copied ? 'Copiado!' : 'Copiar Transcrição'}
-        </Button>
-      </div>
-      <Textarea
-        value={transcription?.text || ''}
-        readOnly
-        className="min-h-[300px] bg-tubepro-dark border-white/10 whitespace-pre-line"
-      />
-      <div className="flex justify-between mt-6">
-        <div className="flex items-center text-white/70">
-          <FileAudio size={16} className="mr-2" />
-          <span className="text-sm">Transcrição gerada por IA</span>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={resetTranscription}
-          >
-            Nova Transcrição
-          </Button>
-          <Button onClick={() => setIsSaveDialogOpen(true)} className="btn-gradient">
-            <Save className="mr-2 h-4 w-4"/>
-            Salvar Transcrição
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  const isButtonDisabled = isAuthLoading || isProcessing;
 
   return (
     <>
-      {/* NOVO CABEÇALHO APLICADO AQUI */}
       <PageHeader
         title={<>Transcrição de <span className="text-white font-bold">Vídeos</span></>}
-        description="Extraia o texto de qualquer vídeo do YouTube ou arquivo de áudio e transforme-o em conteúdo valioso para seu canal."
+        description="Extraia o texto de qualquer vídeo do YouTube e transforme-o em conteúdo valioso para seu canal."
       />
       
-      {/* O RESTANTE DO CONTEÚDO DA PÁGINA PERMANECE IGUAL */}
-      {renderServiceInfo()}
-      {transcription ? renderTranscriptionResult() : renderTranscriptionForm()}
+      {transcription ? (
+        <div className="bg-tubepro-darkAccent rounded-xl p-6 animate-fade-in-up">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Transcrição do Vídeo</h2>
+            <Button variant="outline" className="flex items-center gap-2" onClick={copyToClipboard}>
+              {copied ? <Check size={16} /> : <Copy size={16} />}
+              {copied ? 'Copiado!' : 'Copiar'}
+            </Button>
+          </div>
+          <Textarea
+            value={transcription.text}
+            readOnly
+            className="min-h-[400px] bg-tubepro-dark border-white/10 whitespace-pre-line"
+          />
+          <div className="flex justify-between mt-6">
+            <Button variant="outline" onClick={resetTranscription}>Nova Transcrição</Button>
+            <Button onClick={() => setIsSaveDialogOpen(true)} className="btn-gradient">
+              <Save className="mr-2 h-4 w-4"/>
+              Salvar Roteiro
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Tabs defaultValue="youtube" className="mb-6">
+          <TabsList className="mb-4 bg-tubepro-darkAccent">
+            <TabsTrigger value="youtube">URL do YouTube</TabsTrigger>
+            <TabsTrigger value="upload" disabled>Upload de Arquivo (Em breve)</TabsTrigger>
+          </TabsList>
+          <TabsContent value="youtube" className="bg-tubepro-darkAccent rounded-xl p-6">
+            <div className="mb-6">
+              <label htmlFor="youtube-url" className="block mb-2 font-medium">Insira a URL do vídeo do YouTube</label>
+              <Input id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="bg-tubepro-dark border-white/10" disabled={isButtonDisabled} />
+            </div>
+            <Button onClick={handleYoutubeTranscription} disabled={isButtonDisabled} className="btn-gradient w-full">
+              {isAuthLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Autenticando...</> : isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transcrevendo...</> : 'Transcrever Vídeo'}
+            </Button>
+            {isProcessing && (
+              <div className="mt-4">
+                <p className="text-sm text-center text-white/70 mb-2">Buscando e processando legendas... Isso pode levar um momento.</p>
+                <Progress value={progress} className="h-2" indicatorClassName="bg-gradient-to-r from-tubepro-red to-tubepro-yellow" />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
       
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">
@@ -277,12 +180,7 @@ const Transcricao: React.FC = () => {
             <DialogDescription>Dê um nome a esta transcrição para salvá-la em seu histórico.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Input
-                placeholder="Ex: Transcrição sobre Marketing Digital"
-                value={scriptTitle}
-                onChange={(e) => setScriptTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveScript(); }}
-            />
+            <Input placeholder="Ex: Transcrição sobre Google Ads" value={scriptTitle} onChange={(e) => setScriptTitle(e.target.value)} />
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsSaveDialogOpen(false)}>Cancelar</Button>

@@ -1,3 +1,4 @@
+// src/pages/Profile.tsx
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,6 @@ const Profile: React.FC = () => {
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [selectedCoins, setSelectedCoins] = useState(100);
 
-  // Opções de pacotes de Tubecoins
   const coinPackages = [
     { amount: 100, price: 'R$ 9,90', savings: '0%' },
     { amount: 500, price: 'R$ 39,90', savings: '20%' },
@@ -33,7 +33,6 @@ const Profile: React.FC = () => {
     return null;
   }
 
-  // Calcular a porcentagem de progresso para o próximo nível
   const progressPercentage = Math.floor((user.experience / user.experienceToNextLevel) * 100);
 
   const handleStartEditing = () => {
@@ -42,8 +41,6 @@ const Profile: React.FC = () => {
   };
 
   const handleSaveProfile = () => {
-    // Em um aplicativo real, isso enviaria os dados para o backend
-    // Aqui estamos apenas simulando a atualização
     if (editedName.trim() === '') {
       toast.error('O nome não pode ficar em branco');
       return;
@@ -54,7 +51,6 @@ const Profile: React.FC = () => {
   };
 
   const handlePurchaseCoins = () => {
-    // Simular a compra de moedas
     earnCoins(selectedCoins, 'Compra de pacote');
     setPurchaseDialogOpen(false);
     toast.success(`Você comprou ${selectedCoins} Tubecoins com sucesso!`);
