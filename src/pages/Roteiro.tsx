@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import BackButton from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'; // <<< IMPORTAÇÃO ADICIONADA AQUI
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { marked } from 'marked';
+import PageHeader from '@/components/PageHeader'; // IMPORTANDO O NOVO CABEÇALHO
 
 // --- Tipos e Estruturas de Dados ---
 type Stage = 'asking' | 'generating' | 'revealing' | 'finished';
@@ -124,7 +124,7 @@ const Roteiro: React.FC = () => {
       setCurrentQuestionIndex(nextQuestionIndex);
     }
   };
-  
+
   const handleRevealNext = () => {
     if (revealedScriptParts < scriptParts.length) {
       setRevealedScriptParts(p => p + 1);
@@ -152,7 +152,7 @@ const Roteiro: React.FC = () => {
 
     const fullScript = scriptParts.join('\n\n---PART-BREAK---\n\n');
     const supabase = getSupabaseClient();
-    
+
     const { error } = await supabase.from('scripts').insert({
         user_id: user.id,
         title: scriptTitle,
@@ -168,35 +168,56 @@ const Roteiro: React.FC = () => {
     }
   };
 
-
   return (
-    <div className="container max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8"><h1 className="text-4xl md:text-5xl font-bold text-gradient bg-animate">Criador de Roteiros</h1><BackButton to="/" /></div>
+    <>
+      {/* NOVO CABEÇALHO APLICADO AQUI */}
+      <PageHeader
+        title={
+          <>
+            Criador de <span className="text-white font-bold">Roteiros</span>
+          </>
+        }
+        description="Responda um briefing estratégico e receba um roteiro profundo e conversacional, pronto para ser gravado."
+      />
+      
+      {/* O RESTANTE DO CONTEÚDO DA PÁGINA PERMANECE IGUAL */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-tubepro-darkAccent border-white/10 text-white"><CardHeader><CardTitle className="flex items-center gap-2"><Bot className="text-tubepro-red"/> Briefing com a IA</CardTitle><CardDescription>Responda as perguntas para gerar seu roteiro.</CardDescription></CardHeader><CardContent>
-            <div className="h-96 overflow-y-auto space-y-4 p-4 rounded-md bg-tubepro-dark mb-4">
-                {chatHistory.map((msg, index) => (
-                    <div key={index} className={cn("flex items-start gap-3", msg.sender === 'user' && 'justify-end')}>
-                        {msg.sender === 'ai' && <Bot className="h-6 w-6 text-tubepro-red flex-shrink-0 mt-1" />}
-                        <div className={cn("max-w-md rounded-lg p-3 text-white", msg.sender === 'ai' ? 'bg-white/5' : 'bg-tubepro-red/80')}>
-                            <p className="whitespace-pre-line">{msg.text}</p>
+        <Card className="bg-tubepro-darkAccent border-white/10 text-white">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Bot className="text-tubepro-yellow"/> Briefing com a IA</CardTitle>
+                <CardDescription>Responda as perguntas para gerar seu roteiro.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="h-96 overflow-y-auto space-y-4 p-4 rounded-md bg-tubepro-dark mb-4">
+                    {chatHistory.map((msg, index) => (
+                        <div key={index} className={cn("flex items-start gap-3", msg.sender === 'user' && 'justify-end')}>
+                            {msg.sender === 'ai' && <Bot className="h-6 w-6 text-red-500 flex-shrink-0 mt-1" />}
+                            <div className={cn("max-w-md rounded-lg p-3 text-white", msg.sender === 'ai' ? 'bg-white/5' : 'bg-tubepro-red/80')}>
+                                <p className="whitespace-pre-line">{msg.text}</p>
+                            </div>
+                            {msg.sender === 'user' && <User className="h-6 w-6 text-white flex-shrink-0 mt-1" />}
                         </div>
-                        {msg.sender === 'user' && <User className="h-6 w-6 text-white flex-shrink-0 mt-1" />}
-                    </div>
-                ))}
-              <div ref={chatEndRef} />
-            </div>
-            {stage === 'asking' && (currentQuestionIndex === STRATEGIC_QUESTIONS.length - 1 ? (<div className="space-y-2">{DURATION_OPTIONS.map(opt => <Button key={opt} variant="outline" className="w-full justify-start" onClick={() => handleResponseSubmit(opt)}><Timer className="mr-2 h-4 w-4"/> {opt}</Button>)}</div>) : (<div className="flex items-center gap-2"><Textarea value={currentUserInput} onChange={(e) => setCurrentUserInput(e.target.value)} placeholder={QUESTION_EXAMPLES[currentQuestionIndex]} className="bg-tubepro-dark border-white/10" onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleResponseSubmit(currentUserInput); } }} /><Button onClick={() => handleResponseSubmit(currentUserInput)} className="btn-gradient h-full"><Send className="h-5 w-5" /></Button></div>))}
-        </CardContent></Card>
-        <Card className="bg-tubepro-darkAccent border-white/10 text-white"><CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="text-tubepro-yellow"/> Roteiro Gerado</CardTitle><CardDescription>Seu roteiro completo aparecerá aqui.</CardDescription></CardHeader><CardContent>
-             <div className="h-[28.5rem] overflow-y-auto space-y-4 p-4 rounded-md bg-tubepro-dark">
-                {isLoading && <div className="flex flex-col items-center justify-center h-full text-center text-white/70"><Loader2 className="h-10 w-10 animate-spin mb-4 text-tubepro-red" /><p className="font-semibold">A IA está escrevendo...</p></div>}
-                {(stage === 'revealing' || stage === 'finished') && scriptParts.slice(0, revealedScriptParts).map((part, index) => <ScriptPart key={index} content={part} />)}
-                {stage === 'asking' && !isLoading && <div className="flex items-center justify-center h-full text-center text-white/50"><p>Seu roteiro aparecerá aqui após o briefing.</p></div>}
-             </div>
-             {stage === 'revealing' && <div className="text-center mt-4"><Button onClick={handleRevealNext} variant="outline" className="animate-pulse">Devo seguir? (Revelar Parte {revealedScriptParts + 1})<ChevronDown className="ml-2 h-4 w-4" /></Button></div>}
-             {stage === 'finished' && <div className="flex items-center justify-center gap-2 mt-4"><Button variant="outline" onClick={() => copyToClipboard(scriptParts.join('\n\n'))}><Copy className="mr-2 h-4 w-4" /> Copiar Tudo</Button><Button className="btn-gradient" onClick={() => setIsSaveDialogOpen(true)}><Save className="mr-2 h-4 w-4"/> Salvar Roteiro</Button></div>}
-          </CardContent></Card>
+                    ))}
+                  <div ref={chatEndRef} />
+                </div>
+                {stage === 'asking' && (currentQuestionIndex === STRATEGIC_QUESTIONS.length - 1 ? (<div className="space-y-2">{DURATION_OPTIONS.map(opt => <Button key={opt} variant="outline" className="w-full justify-start" onClick={() => handleResponseSubmit(opt)}><Timer className="mr-2 h-4 w-4"/> {opt}</Button>)}</div>) : (<div className="flex items-center gap-2"><Textarea value={currentUserInput} onChange={(e) => setCurrentUserInput(e.target.value)} placeholder={QUESTION_EXAMPLES[currentQuestionIndex]} className="bg-tubepro-dark border-white/10" onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleResponseSubmit(currentUserInput); } }} /><Button onClick={() => handleResponseSubmit(currentUserInput)} className="btn-gradient h-full"><Send className="h-5 w-5" /></Button></div>))}
+            </CardContent>
+        </Card>
+        <Card className="bg-tubepro-darkAccent border-white/10 text-white">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Sparkles className="text-tubepro-yellow"/> Roteiro Gerado</CardTitle>
+                <CardDescription>Seu roteiro completo aparecerá aqui.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="h-[28.5rem] overflow-y-auto space-y-4 p-4 rounded-md bg-tubepro-dark">
+                    {isLoading && <div className="flex flex-col items-center justify-center h-full text-center text-white/70"><Loader2 className="h-10 w-10 animate-spin text-red-500" /><p className="font-semibold">A IA está escrevendo...</p></div>}
+                    {(stage === 'revealing' || stage === 'finished') && scriptParts.slice(0, revealedScriptParts).map((part, index) => <ScriptPart key={index} content={part} />)}
+                    {stage === 'asking' && !isLoading && <div className="flex items-center justify-center h-full text-center text-white/50"><p>Seu roteiro aparecerá aqui após o briefing.</p></div>}
+                </div>
+                {stage === 'revealing' && <div className="text-center mt-4"><Button onClick={handleRevealNext} variant="outline" className="animate-pulse">Devo seguir? (Revelar Parte {revealedScriptParts + 1})<ChevronDown className="ml-2 h-4 w-4" /></Button></div>}
+                {stage === 'finished' && <div className="flex items-center justify-center gap-2 mt-4"><Button variant="outline" onClick={() => copyToClipboard(scriptParts.join('\n\n'))}><Copy className="mr-2 h-4 w-4" /> Copiar Tudo</Button><Button className="btn-gradient" onClick={() => setIsSaveDialogOpen(true)}><Save className="mr-2 h-4 w-4"/> Salvar Roteiro</Button></div>}
+            </CardContent>
+        </Card>
       </div>
 
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
@@ -219,7 +240,7 @@ const Roteiro: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };
 

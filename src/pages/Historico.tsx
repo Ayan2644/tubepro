@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabaseClient } from '@/lib/supabase';
-import { FileText, Edit, Trash2, Loader2, PlusCircle, Expand } from 'lucide-react';
-import BackButton from '@/components/BackButton';
+import { FileText, Edit, Trash2, Loader2, Expand } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import PageHeader from '@/components/PageHeader'; // IMPORTANDO O NOVO CABEÇALHO
 
 interface Script {
   id: string;
@@ -100,12 +101,14 @@ const Historico: React.FC = () => {
   };
 
   return (
-    <div className="container max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-4xl font-bold text-gradient bg-animate">Histórico de Roteiros</h1>
-        <BackButton to="/" />
-      </div>
+    <>
+      {/* NOVO CABEÇALHO APLICADO AQUI */}
+      <PageHeader
+        title={<>Histórico de <span className="text-white font-bold">Projetos</span></>}
+        description="Acesse, edite e gerencie todos os seus roteiros e planos de conteúdo salvos em um só lugar."
+      />
 
+      {/* O RESTANTE DO CONTEÚDO DA PÁGINA PERMANECE IGUAL */}
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
             <Loader2 className="h-12 w-12 animate-spin text-tubepro-red" />
@@ -175,7 +178,7 @@ const Historico: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };
 

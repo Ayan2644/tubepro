@@ -1,28 +1,26 @@
-// src/pages/Index.tsx
+// src/components/Layout.tsx
 
 import React from 'react';
-// A MUDANÇA ESTÁ NESSA LINHA DE IMPORTAÇÃO ABAIXO
+import { Outlet } from 'react-router-dom';
 import { Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarLink, MobileSidebar } from '@/components/Sidebar';
-import Dashboard from '@/components/Dashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { Home, Lightbulb, FilePen, Youtube, Bot, Settings, LogOut, User as UserIcon, LogIn, FolderArchive } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
-const Index: React.FC = () => {
+const Layout: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   const menuItems = [
     { label: "Dashboard", icon: Home, path: "/" },
     { label: "Gerador de Ideias", icon: Lightbulb, path: "/ideias" },
     { label: "Criador de Roteiros", icon: FilePen, path: "/roteiro" },
-    { label: "Transcrição de Vídeo", icon: Youtube, path: "/transcricao" },
+    { label: "Transcrição", icon: Youtube, path: "/transcricao" },
     { label: "Histórico", icon: FolderArchive, path: "/historico"},
     { label: "Assistente IA", icon: Bot, path: "/assistente" },
   ];
 
   return (
     <div className="flex min-h-screen bg-tubepro-dark text-white">
+      {/* A Sidebar agora faz parte do layout principal */}
       <Sidebar>
         <SidebarHeader />
         <SidebarContent>
@@ -45,22 +43,17 @@ const Index: React.FC = () => {
         </SidebarFooter>
       </Sidebar>
 
-      <div className="flex-1 flex flex-col">
-          <header className="flex items-center justify-between md:hidden p-2 border-b border-white/10">
-              <img
-                  src="/logo-white.png"
-                  alt="TubePro Logo"
-                  onClick={() => navigate('/')}
-                  className="h-8 object-contain cursor-pointer"
-              />
-              <MobileSidebar />
-          </header>
-          <main className="flex-1 p-4 md:p-6">
-              <Dashboard />
+      {/* Container Principal para o conteúdo */}
+      <div className="flex-1 flex flex-col w-full overflow-hidden">
+          <MobileSidebar /> {/* Mantém o menu mobile para telas menores */}
+          
+          {/* O <Outlet> é onde cada página (Dashboard, Ideias, etc.) será renderizada */}
+          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+              <Outlet />
           </main>
       </div>
     </div>
   );
 };
 
-export default Index;
+export default Layout;

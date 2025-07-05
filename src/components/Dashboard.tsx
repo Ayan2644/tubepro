@@ -1,6 +1,6 @@
 import React from 'react';
 import ToolSection from './ToolSection';
-import { 
+import {
   Lightbulb,
   Search,
   Users as UsersIcon,
@@ -128,7 +128,7 @@ const Dashboard: React.FC = () => {
             Crescer no YouTube Agora Ficou Fácil!
           </p>
           <p className="mt-4 text-white/70">
-            Use nossas ferramentas de IA para criar conteúdo de alta qualidade, otimizar seus vídeos 
+            Use nossas ferramentas de IA para criar conteúdo de alta qualidade, otimizar seus vídeos
             e aumentar seu alcance no YouTube.
           </p>
         </div>

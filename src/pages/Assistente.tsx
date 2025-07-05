@@ -1,10 +1,11 @@
+// src/pages/Assistente.tsx
 
 import React, { useState } from 'react';
 import { Bot, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import BackButton from '@/components/BackButton';
+import PageHeader from '@/components/PageHeader'; // IMPORTANDO O NOVO CABEÇALHO
 
 const Assistente: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -18,15 +19,12 @@ const Assistente: React.FC = () => {
     }
 
     setIsLoading(true);
-    
-    // Simulação de API - em um app real, conectaríamos com a OpenAI
+
+    // Simulação de API
     try {
-      // Delay para simular chamada de API
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Respostas simuladas baseadas em palavras-chave
       let simulatedResponse = '';
-      
+
       if (prompt.toLowerCase().includes('ideia')) {
         simulatedResponse = 'Aqui estão algumas ideias para vídeos:\n\n1. "10 Dicas para Melhorar a Qualidade do Áudio"\n2. "Como Crescer no YouTube em 2025"\n3. "Tutorial: Edição Avançada com DaVinci Resolve"\n4. "Tendências de Conteúdo que Estão Bombando"\n5. "Guia Completo de Iluminação para Vídeos Profissionais"';
       } else if (prompt.toLowerCase().includes('roteiro')) {
@@ -36,7 +34,7 @@ const Assistente: React.FC = () => {
       } else {
         simulatedResponse = 'Como posso ajudar você a criar conteúdo melhor para o YouTube? Posso fornecer dicas sobre roteiros, ideias de vídeo, estratégias de SEO, edição, ou qualquer outro aspecto de produção de conteúdo.';
       }
-      
+
       setResponse(simulatedResponse);
       setIsLoading(false);
     } catch (error) {
@@ -47,31 +45,30 @@ const Assistente: React.FC = () => {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Bot className="text-tubepro-red w-8 h-8" />
-          <h1 className="text-2xl font-bold">Assistente TubePro</h1>
-        </div>
-        <BackButton to="/" />
-      </div>
+    <>
+      {/* NOVO CABEÇALHO APLICADO AQUI */}
+      <PageHeader
+        title={<>Assistente <span className="text-white font-bold">TubePro</span></>}
+        description="Seu copiloto de IA para tirar dúvidas, ter insights e receber orientações personalizadas sobre seu canal."
+      />
       
+      {/* O RESTANTE DO CONTEÚDO DA PÁGINA PERMANECE IGUAL */}
       <div className="bg-tubepro-darkAccent rounded-xl p-6 mb-6">
         <p className="text-white/80 mb-4">
           Pergunte qualquer coisa sobre criação de conteúdo para YouTube. O assistente TubePro pode
           ajudar com ideias, roteiros, SEO, tendências e muito mais.
         </p>
-        
+
         <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Ex: Gere ideias de vídeos sobre tecnologia ou Crie um roteiro para um tutorial..."
+          placeholder="Ex: Me dê 5 dicas para melhorar a retenção dos meus vídeos..."
           className="bg-tubepro-dark border-white/10 min-h-24 mb-4"
         />
-        
+
         <div className="flex justify-end">
-          <Button 
-            onClick={handleGenerateResponse} 
+          <Button
+            onClick={handleGenerateResponse}
             disabled={isLoading}
             className="btn-gradient"
           >
@@ -80,7 +77,7 @@ const Assistente: React.FC = () => {
           </Button>
         </div>
       </div>
-      
+
       {response && (
         <div className="bg-tubepro-darkAccent rounded-xl p-6">
           <h2 className="text-xl font-semibold mb-3">Resposta:</h2>
@@ -89,7 +86,7 @@ const Assistente: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

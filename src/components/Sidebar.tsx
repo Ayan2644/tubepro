@@ -1,10 +1,9 @@
 // src/components/Sidebar.tsx
 
 import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import {
-  ChevronLeft, Home, Lightbulb, FilePen, Youtube, Bot, Settings, LogOut, User as UserIcon, Menu, LogIn
+  ChevronLeft, Home, Lightbulb, FilePen, Youtube, Bot, Settings, LogOut, User as UserIcon, Menu, LogIn, FolderArchive
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -13,6 +12,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNavigate, useLocation } from "react-router-dom"
+
+// Verifique se estes caminhos estão corretos e os arquivos existem.
+import TubeProLogoFull from '../assets/logo-white.png';
+import TubeProLogoIcon from '../assets/logo-icon.png';
 
 const sidebarVariants = cva("flex flex-col h-full bg-tubepro-darkAccent border-r border-white/10 text-white transition-all duration-300", {
   variants: {
@@ -52,18 +55,40 @@ const SidebarHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
     const navigate = useNavigate();
 
     return(
-        <div ref={ref} className={cn("flex items-center p-4", collapsed ? "justify-center" : "justify-between")} {...props}>
-             <span
+        <div 
+          ref={ref} 
+          className={cn(
+            "flex items-center p-4 h-24 shrink-0", 
+            collapsed ? "flex-col justify-start pt-2 gap-4" : "flex-row justify-between", // A linha modificada
+            className
+          )} 
+          {...props}
+        >
+             {/* Logo Completa (visível quando expandido) */}
+             <img
+                src={TubeProLogoFull}
+                alt="TubePro Logo"
                 onClick={() => navigate('/')}
                 className={cn(
-                    "text-2xl font-bold text-gradient cursor-pointer",
-                    collapsed && "hidden"
+                    "h-16 object-contain cursor-pointer",
+                    collapsed && "hidden" // Esconde quando recolhido
                 )}
-            >
-                TubePro
-            </span>
-            <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)}>
-                <ChevronLeft className={cn("transition-transform", collapsed && "rotate-180")} />
+            />
+            
+            {/* Ícone da Logo (visível quando recolhido) */}
+            <img
+                src={TubeProLogoIcon}
+                alt="TubePro Icon"
+                onClick={() => setCollapsed(false)} // Clicar no ícone expande
+                className={cn(
+                    "h-10 w-10 object-contain cursor-pointer",
+                    !collapsed && "hidden" // Esconde quando expandido
+                )}
+            />
+            
+            {/* Botão de recolher/expandir */}
+            <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="shrink-0">
+                <ChevronLeft className={cn("transition-transform duration-300", collapsed && "rotate-180")} />
             </Button>
         </div>
     )
@@ -76,7 +101,7 @@ const SidebarContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTM
 SidebarContent.displayName = "SidebarContent"
 
 const SidebarFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("p-2 mt-auto", className)} {...props} />
+    <div ref={ref} className={cn("p-2 mt-auto shrink-0", className)} {...props} />
 ));
 SidebarFooter.displayName = "SidebarFooter"
 
@@ -99,9 +124,9 @@ const SidebarLink = React.forwardRef<HTMLAnchorElement, SidebarLinkProps>(({ ico
         href={path}
         onClick={(e) => { e.preventDefault(); action ? action() : navigate(path); }}
         className={cn(
-          buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }),
+          buttonVariants({ variant: "ghost", size: "default" }),
           "w-full justify-start gap-3",
-          isActive && "bg-gradient-to-r from-tubepro-red to-tubepro-yellow text-white",
+          isActive && "btn-gradient text-white",
           collapsed && "w-10 h-10 p-0 justify-center"
         )}
         {...props}
@@ -115,12 +140,8 @@ const SidebarLink = React.forwardRef<HTMLAnchorElement, SidebarLinkProps>(({ ico
         return (
             <TooltipProvider>
                 <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                        {linkContent}
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                        {label}
-                    </TooltipContent>
+                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                    <TooltipContent side="right">{label}</TooltipContent>
                 </Tooltip>
             </TooltipProvider>
         )
@@ -135,35 +156,24 @@ const MobileSidebar: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout } = useAuth();
-    
+
     const menuItems = [
       { label: "Dashboard", icon: Home, path: "/" },
       { label: "Gerador de Ideias", icon: Lightbulb, path: "/ideias" },
       { label: "Criador de Roteiros", icon: FilePen, path: "/roteiro" },
-      { label: "Transcrição de Vídeo", icon: Youtube, path: "/transcricao" },
+      { label: "Transcrição", icon: Youtube, path: "/transcricao" },
+      { label: "Histórico", icon: FolderArchive, path: "/historico"},
       { label: "Assistente IA", icon: Bot, path: "/assistente" },
     ];
 
     return (
         <Sheet>
-            <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                    <Menu />
-                </Button>
-            </SheetTrigger>
+            <SheetTrigger asChild><Button variant="ghost" size="icon" className="md:hidden"><Menu /></Button></SheetTrigger>
             <SheetContent side="left" className="w-64 bg-tubepro-darkAccent border-r border-white/10 text-white p-4 flex flex-col">
-                <span onClick={() => navigate('/')} className="text-2xl font-bold text-gradient mb-8 block">TubePro</span>
+                <img src={TubeProLogoFull} alt="TubePro Logo" onClick={() => navigate('/')} className="h-12 object-contain cursor-pointer mb-8" />
                 <nav className="flex flex-col gap-2">
                     {menuItems.map(item => (
-                        <Button
-                            key={item.label}
-                            variant={location.pathname === item.path ? "default" : "ghost"}
-                            className={cn(
-                                "justify-start gap-3",
-                                location.pathname === item.path && "bg-gradient-to-r from-tubepro-red to-tubepro-yellow"
-                            )}
-                            onClick={() => navigate(item.path)}
-                        >
+                        <Button key={item.label} variant={location.pathname === item.path ? "default" : "ghost"} className={cn("justify-start gap-3", location.pathname === item.path && "btn-gradient")} onClick={() => navigate(item.path)}>
                             <item.icon className="h-5 w-5" /> {item.label}
                         </Button>
                     ))}

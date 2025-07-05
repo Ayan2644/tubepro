@@ -1,13 +1,13 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* === CORES OFICIAIS TUBEPRO === */
 :root {
   --tubepro-dark: #121212;
   --tubepro-darkAccent: #1E1E1E;
-  --tubepro-red: #ed1b22;
-  --tubepro-yellow: #fbe501;
+  --tubepro-red: #ed1b22;      /* Nova cor primária */
+  --tubepro-yellow: #fbe501;   /* Nova cor secundária */
 }
 
 body {
@@ -16,7 +16,7 @@ body {
   color: white;
 }
 
-/* Gradiente para textos */
+/* Gradiente para textos, inspirado no modelo */
 .text-gradient {
   background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
   -webkit-background-clip: text;
@@ -25,9 +25,14 @@ body {
   text-fill-color: transparent;
 }
 
-/* Gradiente para botões */
+/* Gradiente para botões e elementos de fundo */
 .btn-gradient {
   background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
+  color: white; /* Garante que o texto do botão seja legível */
+}
+
+.btn-gradient:hover {
+  opacity: 0.9;
 }
 
 /* Hover effect para cards */
@@ -48,9 +53,9 @@ textarea, input {
 }
 
 textarea:focus, input:focus {
-  border-color: var(--tubepro-red) !important;
+  border-color: var(--tubepro-yellow) !important; /* Destaque com amarelo */
   outline: none !important;
-  box-shadow: 0 0 0 2px rgba(237, 27, 34, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(251, 229, 1, 0.2) !important;
 }
 
 /* Sidebar ativa */
@@ -59,13 +64,13 @@ textarea:focus, input:focus {
   color: white !important;
 }
 
-/* Animação para o fundo do banner */
+/* Animação para o fundo do gradiente */
 .bg-animate {
-  background-size: 400% 400%;
-  animation: gradient 15s ease infinite;
+  background-size: 200% 200%;
+  animation: gradient-animation 10s ease infinite;
 }
 
-@keyframes gradient {
+@keyframes gradient-animation {
   0% {
     background-position: 0% 50%;
   }
@@ -76,166 +81,39 @@ textarea:focus, input:focus {
     background-position: 0% 50%;
   }
 }
+/* === ANIMAÇÕES PARA CABEÇALHO DAS PÁGINAS === */
 
-/* Animações para elementos de gamificação */
-@keyframes pulse {
+/* Animação para o brilho pulsante do ícone da logo */
+.icon-glow {
+  /* Sombra amarela que se expande, com um toque de vermelho */
+  filter: drop-shadow(0 0 12px rgba(251, 229, 1, 0.5));
+  animation: icon-pulse-glow 4s ease-in-out infinite;
+}
+
+@keyframes icon-pulse-glow {
   0%, 100% {
-    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(251, 229, 1, 0.5));
   }
   50% {
-    opacity: 0.7;
+    filter: drop-shadow(0 0 20px rgba(237, 27, 34, 0.6));
   }
 }
 
-.pulse-animation {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Animação para o movimento do gradiente no título */
+.title-animate {
+  background-size: 200% 200%;
+  animation: gradient-animation 8s ease infinite;
 }
 
-@keyframes float {
+/* Reutilizando a keyframe que você já tinha, mas a classe é para o título */
+@keyframes gradient-animation {
   0% {
-    transform: translateY(0px);
+    background-position: 0% 50%;
   }
   50% {
-    transform: translateY(-10px);
+    background-position: 100% 50%;
   }
   100% {
-    transform: translateY(0px);
+    background-position: 0% 50%;
   }
-}
-
-.float-animation {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* Estilos para o sistema de gamificação */
-.level-badge {
-  background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
-  border-radius: 9999px;
-  padding: 0.25rem 0.75rem;
-  font-weight: bold;
-  color: white;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  box-shadow: 0 4px 12px rgba(237, 27, 34, 0.3);
-}
-
-.achievement {
-  border-radius: 0.5rem;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(255, 255, 255, 0.03);
-  transition: all 0.2s ease;
-}
-
-.achievement:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.achievement-complete {
-  background: linear-gradient(45deg, rgba(237, 27, 34, 0.1), rgba(251, 229, 1, 0.1));
-  border-color: rgba(237, 27, 34, 0.3);
-}
-
-/* Classes para o sistema de autenticação */
-.auth-form {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 2rem;
-  border-radius: 1rem;
-  background-color: var(--tubepro-darkAccent);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.auth-input {
-  width: 100%;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  border-radius: 0.5rem;
-  background-color: var(--tubepro-dark);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.auth-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-/* Estilos para o sistema de Tubecoins */
-.coin {
-  display: inline-flex;
-  align-items: center;
-  background: linear-gradient(45deg, var(--tubepro-yellow), #ffcd38);
-  border-radius: 9999px;
-  padding: 0.25rem 0.5rem;
-  color: black;
-  font-weight: bold;
-  box-shadow: 0 4px 8px rgba(251, 229, 1, 0.3);
-}
-
-.coin-icon {
-  color: var(--tubepro-dark);
-  margin-right: 0.25rem;
-}
-
-/* Pulsação para coins */
-@keyframes coin-pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-.coin-pulse {
-  animation: coin-pulse 2s ease-in-out infinite;
-}
-
-/* Brilho para conquistas */
-@keyframes shine {
-  0% {
-    background-position: -100px;
-  }
-  40%, 100% {
-    background-position: 300px;
-  }
-}
-
-.achievement-shine {
-  position: relative;
-  overflow: hidden;
-}
-
-.achievement-shine::after {
-  content: '';
-  position: absolute;
-  top: -110%;
-  left: -200%;
-  width: 200%;
-  height: 200%;
-  opacity: 0;
-  transform: rotate(30deg);
-  background: rgba(255, 255, 255, 0.13);
-  background: linear-gradient(
-    to right, 
-    rgba(255, 255, 255, 0.13) 0%,
-    rgba(255, 255, 255, 0.13) 77%,
-    rgba(255, 255, 255, 0.5) 92%,
-    rgba(255, 255, 255, 0.0) 100%
-  );
-}
-
-.achievement-shine:hover::after {
-  opacity: 1;
-  top: -30%;
-  left: -30%;
-  transition-property: left, top, opacity;
-  transition-duration: 0.7s, 0.7s, 0.15s;
-  transition-timing-function: ease;
 }
