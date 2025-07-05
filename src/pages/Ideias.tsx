@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Lightbulb, Copy, Check, Sparkles, PencilRuler, Tags, FileText, RefreshCw, Loader2 } from 'lucide-react';
+// src/pages/Ideias.tsx
+
+import React, { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,19 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
-import SeoCalculator from '@/components/SeoCalculator';
 import { getSupabaseClient } from '@/lib/supabase';
-
-// --- Tipos e Estruturas de Dados ---
-type SectionType = 'titles' | 'description' | 'tags' | 'scriptStructure';
+import { ContentPlanDisplay } from '@/components/ContentPlanDisplay';
 
 interface ContentPlan {
   title: string;
-  titles?: string[]; // Marcado como opcional
+  titles?: string[];
   description: string;
   tags: string[];
   scriptStructure: {
@@ -30,33 +26,11 @@ interface ContentPlan {
   };
 }
 
-// --- Componentes Auxiliares ---
-const CopyableListItem: React.FC<{ text: string }> = ({ text }) => {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      toast.success("Copiado!");
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-  return (
-    <li className="flex items-center justify-between group py-1">
-      <span className="text-white/90">{text}</span>
-      <Button size="icon" variant="ghost" onClick={handleCopy} className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
-        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-      </Button>
-    </li>
-  );
-};
-
-// --- Componente Principal da Página ---
 const Ideias: React.FC = () => {
   const [topic, setTopic] = useState('');
   const [audience, setAudience] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [contentPlan, setContentPlan] = useState<ContentPlan | null>(null);
-  const [regeneratingSection, setRegeneratingSection] = useState<SectionType | null>(null);
 
   const handleGeneratePlan = async () => {
     if (!topic.trim()) {
@@ -68,32 +42,57 @@ const Ideias: React.FC = () => {
     setContentPlan(null);
 
     try {
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase.functions.invoke('mestre-de-conteudo', {
-            body: { topic, audience },
-        });
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Usuário não autenticado.");
 
-        if (error) throw error;
-        
-        // --- CORREÇÃO DEFINITIVA APLICADA AQUI ---
-        // Agora o código verifica se 'data.titles' existe. Se não, ele cria uma lista
-        // que contém apenas o 'data.title' principal. Isso resolve o erro "not iterable".
-        const finalPlan = {
-          ...data,
-          titles: data.titles && Array.isArray(data.titles) ? [data.title, ...data.titles] : [data.title],
-        };
+      const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mestre-de-conteudo`,
+          {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+              },
+              body: JSON.stringify({ topic, audience }),
+          }
+      );
 
-        setContentPlan(finalPlan as ContentPlan);
-        toast.success("Seu plano de conteúdo foi gerado pela IA!");
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Não foi possível ler a resposta do servidor.");
+      
+      const decoder = new TextDecoder();
+      let accumulatedResponse = '';
+      
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulatedResponse += decoder.decode(value, { stream: true });
+      }
+      
+      const cleanedResponse = accumulatedResponse.replace(/```json|```/g, '').trim();
+      const finalPlan = JSON.parse(cleanedResponse); 
+      
+      setContentPlan({
+          ...finalPlan,
+          titles: finalPlan.titles && Array.isArray(finalPlan.titles) ? [finalPlan.title, ...finalPlan.titles] : [finalPlan.title],
+      });
+
+      toast.success("Seu plano de conteúdo foi gerado pela IA!");
 
     } catch (error: any) {
-        console.error('Erro ao chamar a IA:', error);
-        toast.error("A IA não conseguiu gerar o plano.", {
-            description: error.data?.error || error.message || "Tente refazer sua pergunta ou aguarde um momento."
-        });
+      console.error('Erro ao chamar a IA:', error);
+      toast.error("A IA não conseguiu gerar o plano.", {
+          description: error.message || "Tente refazer sua pergunta ou aguarde um momento."
+      });
     } finally {
-        setIsLoading(false);
-        setRegeneratingSection(null);
+      setIsLoading(false);
     }
   };
 
@@ -102,20 +101,6 @@ const Ideias: React.FC = () => {
       <Skeleton className="h-48 w-full rounded-xl" />
       <Skeleton className="h-8 w-3/4 mt-6" />
       <Skeleton className="h-32 w-full" />
-    </div>
-  );
-  
-  const AccordionTriggerWithRegen: React.FC<{ section: SectionType; children: React.ReactNode; icon: React.ReactNode }> = ({ section, children, icon }) => (
-    <div className="flex w-full items-center justify-between">
-      <AccordionTrigger className="flex-1 text-left">
-        <div className="flex items-center">
-            {regeneratingSection === section 
-              ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> 
-              : React.cloneElement(icon as React.ReactElement, { className: "mr-2 h-5 w-5" })}
-            {children}
-        </div>
-      </AccordionTrigger>
-      {/* A lógica de regeneração de seção pode ser implementada no futuro */}
     </div>
   );
 
@@ -153,63 +138,10 @@ const Ideias: React.FC = () => {
       </Card>
 
       {isLoading && renderLoadingSkeleton()}
+      
+      {contentPlan && !isLoading && <ContentPlanDisplay contentPlan={contentPlan} />}
+    </div>
+  );
+};
 
-      {contentPlan && (
-        <div className="animate-fade-in-up space-y-4">
-          <SeoCalculator
-            title={contentPlan.title}
-            description={contentPlan.description}
-            tags={contentPlan.tags}
-            script={contentPlan.scriptStructure}
-          />
-          <Card className="bg-tubepro-darkAccent border-white/10 text-white mt-6">
-            <CardHeader>
-              <CardTitle className="text-xl">Seu Plano de Conteúdo Detalhado</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
-                <AccordionItem value="item-1">
-                  <AccordionTriggerWithRegen section="titles" icon={<PencilRuler/>}>Títulos Sugeridos</AccordionTriggerWithRegen>
-                  <AccordionContent>
-                    <ul className="space-y-2 list-disc list-inside">
-                      {contentPlan.titles?.map((title, i) => <CopyableListItem key={i} text={title} />)}
-                    </ul>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-2">
-                  <AccordionTriggerWithRegen section="description" icon={<FileText/>}>Descrição Otimizada</AccordionTriggerWithRegen>
-                  <AccordionContent>
-                    <Textarea readOnly value={contentPlan.description} className="min-h-48 bg-tubepro-dark whitespace-pre-line"/>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-3">
-                  <AccordionTriggerWithRegen section="tags" icon={<Tags/>}>Tags Estratégicas</AccordionTriggerWithRegen>
-                  <AccordionContent>
-                    <div className="flex flex-wrap gap-2">
-                      {contentPlan.tags.map((tag, i) => <Badge key={i} variant="secondary">{tag}</Badge>)}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="item-4">
-                  <AccordionTriggerWithRegen section="scriptStructure" icon={<Lightbulb/>}>Estrutura do Roteiro</AccordionTriggerWithRegen>
-                  <AccordionContent className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold">Gancho (Hook)</h4>
-                      <p className="text-white/70 italic">"{contentPlan.scriptStructure.hook}"</p>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Introdução</h4>
-                      <p className="text-white/70">{contentPlan.scriptStructure.introduction}</p>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Pontos Principais</h4>
-                      <ul className="list-disc list-inside text-white/70 space-y-1">
-                        {contentPlan.scriptStructure.mainPoints.map((point, i) => <li key={i}>{point}</li>)}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Chamada para Ação (CTA)</h4>
-                      <p className="text-white/70">{contentPlan.scriptStructure.cta}</p>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem
+export default Ideias;
