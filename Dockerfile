@@ -9,7 +9,8 @@ USER root
 RUN apk add --no-cache ffmpeg python3 py3-pip
 
 # Instala a ferramenta yt-dlp usando o pip do python
-RUN pip install yt-dlp
+# A CORREÇÃO ESTÁ AQUI: Adicionamos a flag --break-system-packages
+RUN pip install yt-dlp --break-system-packages
 
 # Opcional: Limpa o cache para manter a imagem pequena
 RUN rm -rf /root/.cache/pip
