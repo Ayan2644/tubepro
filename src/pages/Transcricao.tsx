@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
-import { TranscriptionResult, extractYoutubeVideoId } from '@/utils/transcriptionService';
+import { TranscriptionResult, extractYoutubeVideoId, formatTime } from '@/utils/transcriptionService'; // Importe formatTime
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -18,7 +18,8 @@ const Transcricao: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [transcription, setTranscription] = useState<TranscriptionResult | null>(null);
+  // Modificamos para armazenar o objeto TranscriptionResult completo
+  const [transcriptionData, setTranscriptionData] = useState<TranscriptionResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [scriptTitle, setScriptTitle] = useState('');
@@ -48,7 +49,8 @@ const Transcricao: React.FC = () => {
       toast.error("Você precisa estar logado para usar esta ferramenta.");
       return;
     }
-    if (!extractYoutubeVideoId(youtubeUrl)) {
+    const videoId = extractYoutubeVideoId(youtubeUrl);
+    if (!videoId) {
       toast.error('Por favor, insira uma URL válida do YouTube.');
       return;
     }
@@ -63,15 +65,29 @@ const Transcricao: React.FC = () => {
 
     const clearProgressInterval = simulateProgress();
     try {
-      const { data, error } = await supabase.functions.invoke('transcritor-ia', {
-        body: JSON.stringify({ videoURL: youtubeUrl }),
-      });
-      
-      if (error) throw error;
+      // Ajuste para enviar a URL corretamente como parâmetro de consulta para a função Edge
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcritor-ia?videoURL=${encodeURIComponent(youtubeUrl)}`,
+        {
+          method: 'GET', // Mudamos para GET, pois a URL está nos parâmetros de consulta
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.id}`, // Usamos o ID do usuário como um token de exemplo, ajuste se houver outro esquema de autenticação para a função
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          },
+        }
+      );
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
       if (data.error) throw new Error(data.error);
       
-      setTranscription({ text: data.transcription });
+      setTranscriptionData(data as TranscriptionResult); // Armazenamos o objeto completo
       setProgress(100);
       toast.success('Transcrição concluída!');
 
@@ -84,8 +100,8 @@ const Transcricao: React.FC = () => {
   };
   
   const copyToClipboard = () => {
-    if (!transcription) return;
-    navigator.clipboard.writeText(transcription.text).then(() => {
+    if (!transcriptionData?.text) return;
+    navigator.clipboard.writeText(transcriptionData.text).then(() => {
       setCopied(true);
       toast.success('Copiado para a área de transferência!');
       setTimeout(() => setCopied(false), 2000);
@@ -93,7 +109,7 @@ const Transcricao: React.FC = () => {
   };
 
   const resetTranscription = () => {
-    setTranscription(null);
+    setTranscriptionData(null);
     setYoutubeUrl('');
     setProgress(0);
   };
@@ -103,11 +119,11 @@ const Transcricao: React.FC = () => {
       toast.error("Por favor, dê um título ao seu roteiro.");
       return;
     }
-    if (!user || !transcription) return;
+    if (!user || !transcriptionData) return;
     const { error } = await supabase.from('scripts').insert({
       user_id: user.id,
       title: scriptTitle,
-      content: transcription.text
+      content: transcriptionData.text // Salva o texto completo
     });
     if (error) {
       toast.error("Falha ao salvar o roteiro.", { description: error.message });
@@ -127,7 +143,7 @@ const Transcricao: React.FC = () => {
         description="Extraia o texto de qualquer vídeo do YouTube e transforme-o em conteúdo valioso para seu canal."
       />
       
-      {transcription ? (
+      {transcriptionData ? (
         <div className="bg-tubepro-darkAccent rounded-xl p-6 animate-fade-in-up">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Transcrição do Vídeo</h2>
@@ -136,11 +152,21 @@ const Transcricao: React.FC = () => {
               {copied ? 'Copiado!' : 'Copiar'}
             </Button>
           </div>
-          <Textarea
-            value={transcription.text}
-            readOnly
-            className="min-h-[400px] bg-tubepro-dark border-white/10 whitespace-pre-line"
-          />
+          <div className="min-h-[400px] max-h-[600px] overflow-y-auto bg-tubepro-dark border border-white/10 rounded-md p-4 text-white">
+            {/* Iterar sobre os segmentos para exibir a transcrição com timestamps */}
+            {transcriptionData.segments?.map((segment) => (
+              <p key={segment.id} className="mb-1 text-sm leading-relaxed">
+                <span className="text-white/60 font-mono mr-2">{formatTime(segment.start)}</span>
+                {segment.text}
+              </p>
+            ))}
+            {/* Se não houver segmentos (fallback), exibe o texto completo */}
+            {!transcriptionData.segments && (
+              <p className="whitespace-pre-line text-sm leading-relaxed">
+                {transcriptionData.text}
+              </p>
+            )}
+          </div>
           <div className="flex justify-between mt-6">
             <Button variant="outline" onClick={resetTranscription}>Nova Transcrição</Button>
             <Button onClick={() => setIsSaveDialogOpen(true)} className="btn-gradient">
@@ -158,7 +184,7 @@ const Transcricao: React.FC = () => {
           <TabsContent value="youtube" className="bg-tubepro-darkAccent rounded-xl p-6">
             <div className="mb-6">
               <label htmlFor="youtube-url" className="block mb-2 font-medium">Insira a URL do vídeo do YouTube</label>
-              <Input id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="bg-tubepro-dark border-white/10" disabled={isButtonDisabled} />
+              <Input id="youtube-url" placeholder="Ex: http://googleusercontent.com/youtube.com/watch?v=yZfwzhXp_VE" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="bg-tubepro-dark border-white/10" disabled={isButtonDisabled} />
             </div>
             <Button onClick={handleYoutubeTranscription} disabled={isButtonDisabled} className="btn-gradient w-full">
               {isAuthLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Autenticando...</> : isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transcrevendo...</> : 'Transcrever Vídeo'}
