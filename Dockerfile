@@ -4,16 +4,9 @@ FROM n8nio/n8n:latest
 # Mudamos para o usuário root para poder instalar pacotes
 USER root
 
-# Instala o ffmpeg e outras dependências necessárias (python e pip)
-# Usamos o comando 'apk' pois a imagem do n8n é baseada em Alpine Linux
-RUN apk add --no-cache ffmpeg python3 py3-pip
-
-# Instala a ferramenta yt-dlp usando o pip do python
-# A CORREÇÃO ESTÁ AQUI: Adicionamos a flag --break-system-packages
-RUN pip install yt-dlp --break-system-packages
-
-# Opcional: Limpa o cache para manter a imagem pequena
-RUN rm -rf /root/.cache/pip
+# AÇÃO PRINCIPAL: Instala ffmpeg E yt-dlp diretamente pelo gerenciador de pacotes.
+# Esta é a forma mais estável.
+RUN apk add --no-cache ffmpeg yt-dlp
 
 # Volta para o usuário padrão do n8n para segurança
 USER node
