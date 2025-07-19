@@ -8,9 +8,10 @@ import { toast } from 'sonner';
 import PageHeader from '@/components/PageHeader';
 import { getAssistantResponse } from '@/services/api';
 import { marked } from 'marked';
-// --- CORREÇÃO APLICADA AQUI ---
-// A importação dos componentes de Card foi adicionada.
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Novas importações para a UI
+import ToolStatus from '@/components/ToolStatus';
+import ToolInfoModal, { InfoBlock } from '@/components/ToolInfoModal';
 
 const Assistente: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -24,7 +25,7 @@ const Assistente: React.FC = () => {
     }
 
     setIsLoading(true);
-    setResponse(''); // Limpa a resposta anterior
+    setResponse('');
 
     try {
       const stream = await getAssistantResponse(prompt);
@@ -45,7 +46,6 @@ const Assistente: React.FC = () => {
     }
   };
   
-  // Converte a resposta em Markdown para HTML
   const formattedResponse = marked.parse(response);
 
   return (
@@ -108,6 +108,28 @@ const Assistente: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* --- CÓDIGO NOVO ADICIONADO --- */}
+      <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-center">
+        <ToolStatus 
+          status="active" 
+          serviceName="Assistente de IA ativo" 
+        />
+        <ToolInfoModal
+          triggerText="Sobre o assistente de IA"
+          title="Assistente de IA TubePro"
+          description="Informações sobre a ferramenta de assistência por chat."
+        >
+          <InfoBlock title="Como funciona o serviço">
+            <p>O assistente é um modelo de linguagem avançado com um prompt mestre que o especializa em estratégias de conteúdo para o YouTube.</p>
+            <p>Você pode fazer perguntas abertas sobre roteiros, SEO, ideias, edição, ou qualquer outro tópico relacionado à criação de conteúdo.</p>
+          </InfoBlock>
+          <InfoBlock title="Limites e custos">
+            <p>Cada pergunta e resposta consome uma quantidade de TubeCoins baseada no tamanho e complexidade da conversa.</p>
+            <p>É a ferramenta ideal para obter insights rápidos e desbloquear sua criatividade quando você mais precisa.</p>
+          </InfoBlock>
+        </ToolInfoModal>
+      </div>
     </>
   );
 };

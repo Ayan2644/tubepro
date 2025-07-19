@@ -1,6 +1,6 @@
 // src/pages/Ideias.tsx
 
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // CORREÇÃO APLICADA AQUI
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-// NOVO: Importamos a função diretamente do nosso serviço de API
 import { generateContentPlan } from '@/services/api';
 import { supabase } from '@/lib/supabase';
 import { ContentPlanDisplay } from '@/components/ContentPlanDisplay';
@@ -16,6 +15,8 @@ import PageHeader from '@/components/PageHeader';
 import { Save, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import ToolStatus from '@/components/ToolStatus';
+import ToolInfoModal, { InfoBlock } from '@/components/ToolInfoModal';
 
 interface ContentPlan {
   title: string;
@@ -49,8 +50,6 @@ const Ideias: React.FC = () => {
     setContentPlan(null);
 
     try {
-      // MUDANÇA SIGNIFICATIVA: A lógica complexa de 'fetch' foi substituída
-      // por uma única chamada de função ao nosso novo serviço.
       const stream = await generateContentPlan(topic, audience);
       
       const reader = stream.getReader();
@@ -75,7 +74,6 @@ const Ideias: React.FC = () => {
 
     } catch (error: any) {
       console.error('Erro ao gerar plano de conteúdo:', error);
-      // O toast de erro já é tratado pelo apiService, então não precisamos de outro aqui.
     } finally {
       setIsLoading(false);
     }
@@ -182,6 +180,28 @@ ${contentPlan.scriptStructure.cta}
           </div>
         </>
       )}
+
+      <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-center">
+        <ToolStatus 
+          status="active" 
+          serviceName="Mestre de conteúdo ativo" 
+        />
+        <ToolInfoModal
+          triggerText="Sobre o mestre de conteúdo"
+          title="Mestre de Conteúdo IA"
+          description="Informações sobre a ferramenta de geração de planos de conteúdo."
+        >
+          <InfoBlock title="Como funciona o serviço">
+            <p>Esta ferramenta usa um modelo de IA treinado para pensar como um estrategista de conteúdo do YouTube.</p>
+            <p>Com base no seu tópico e público, ela gera um plano completo, incluindo múltiplos títulos, uma descrição otimizada para SEO, tags e uma estrutura de roteiro pronta para usar.</p>
+          </InfoBlock>
+          <InfoBlock title="Limites e custos">
+            <p>Cada plano de conteúdo gerado consome uma quantidade específica de TubeCoins.</p>
+            <p>O objetivo é fornecer o máximo de valor para que cada TubeCoin investido retorne em forma de visualizações e engajamento.</p>
+          </InfoBlock>
+        </ToolInfoModal>
+      </div>
+      
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">
             <DialogHeader>

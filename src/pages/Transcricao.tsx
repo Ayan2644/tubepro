@@ -12,6 +12,9 @@ import { supabase } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import PageHeader from '@/components/PageHeader';
 import { transcribeYoutubeVideo } from '@/services/api';
+// --- NOVAS IMPORTAÇÕES ---
+import ToolStatus from '@/components/ToolStatus';
+import ToolInfoModal, { InfoBlock } from '@/components/ToolInfoModal';
 
 const Transcricao: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -155,6 +158,31 @@ const Transcricao: React.FC = () => {
           </TabsContent>
         </Tabs>
       )}
+      
+      {/* --- CÓDIGO NOVO ADICIONADO --- */}
+      <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-center">
+        <ToolStatus 
+          status="active" 
+          serviceName="Serviço de transcrição ativo" 
+        />
+        <ToolInfoModal
+          triggerText="Sobre o serviço de transcrição"
+          title="Serviço de Transcrição"
+          description="Informações sobre o serviço de transcrição integrado ao TubePro."
+        >
+          <InfoBlock title="Como funciona o serviço">
+            <p>Nossa ferramenta de transcrição utiliza inteligência artificial avançada para converter áudio em texto de forma rápida e precisa.</p>
+            <p>Você pode transcrever tanto vídeos do YouTube quanto arquivos de áudio/vídeo enviados diretamente (em breve).</p>
+          </InfoBlock>
+          <InfoBlock title="Limites e custos">
+            <p>O serviço de transcrição consome TubeCoins baseado na duração do conteúdo transcrito.</p>
+            <p>Usuários com plano Pro têm acesso a transcrições mais longas e com maior precisão.</p>
+          </InfoBlock>
+          <InfoBlock title="Idiomas suportados">
+            <p>Nossa tecnologia suporta mais de 30 idiomas, com precisão especial para português e inglês.</p>
+          </InfoBlock>
+        </ToolInfoModal>
+      </div>
       
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">

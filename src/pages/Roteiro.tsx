@@ -14,6 +14,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { marked } from 'marked';
 import PageHeader from '@/components/PageHeader';
+// Novas importações para a UI
+import ToolStatus from '@/components/ToolStatus';
+import ToolInfoModal, { InfoBlock } from '@/components/ToolInfoModal';
 
 // --- Tipos e Estruturas de Dados ---
 type Stage = 'asking' | 'generating' | 'finished';
@@ -35,7 +38,6 @@ const DURATION_OPTIONS = [ "Curto (3-5 min)", "Médio (8-12 min)", "Longo (15+ m
 const ScriptPart: React.FC<{ content: string }> = ({ content }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
-        // Remove o separador antes de copiar para a área de transferência
         const textToCopy = content.replace(/---PART-BREAK---/g, '');
         navigator.clipboard.writeText(textToCopy).then(() => {
             setCopied(true);
@@ -43,7 +45,6 @@ const ScriptPart: React.FC<{ content: string }> = ({ content }) => {
             setTimeout(() => setCopied(false), 2000);
         });
     };
-    // Renderiza o conteúdo, mas esconde o separador visualmente
     const cleanContent = content.replace(/---PART-BREAK---/g, '');
     const rawMarkup = marked.parse(cleanContent.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/,""));
 
@@ -79,7 +80,7 @@ const Roteiro: React.FC = () => {
 
   const processAndGenerate = async (finalResponses: UserResponses) => {
     setStage('generating');
-    setScriptParts(['']); // Inicia com uma parte vazia para renderizar o loader
+    setScriptParts(['']);
 
     try {
       const stream = await generateScript(finalResponses);
@@ -95,16 +96,12 @@ const Roteiro: React.FC = () => {
             break;
         };
         accumulatedResponse += decoder.decode(value, { stream: true });
-        
-        // MUDANÇA PRINCIPAL: Atualizamos o estado em tempo real
-        // O split cria um array com as partes do roteiro.
-        // Se uma parte ainda está sendo recebida, ela não terá o "---PART-BREAK---" final.
         setScriptParts(accumulatedResponse.split('---PART-BREAK---'));
       }
     } catch (error: any) {
       console.error("Erro ao gerar roteiro:", error.message);
-      setStage('asking'); // Retorna ao estágio inicial em caso de erro
-      setScriptParts([]); // Limpa as partes do roteiro
+      setStage('asking');
+      setScriptParts([]);
     }
   }
 
@@ -137,7 +134,7 @@ const Roteiro: React.FC = () => {
         return;
     }
 
-    const fullScript = scriptParts.join('\n\n'); // Junta as partes com uma quebra de linha dupla
+    const fullScript = scriptParts.join('\n\n');
 
     const { error } = await supabase.from('scripts').insert({
         user_id: user.id,
@@ -169,7 +166,6 @@ const Roteiro: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Painel de Briefing (Chat) */}
         <Card className="bg-tubepro-darkAccent border-white/10 text-white">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Bot className="text-tubepro-yellow"/> Briefing com a IA</CardTitle>
@@ -192,7 +188,6 @@ const Roteiro: React.FC = () => {
             </CardContent>
         </Card>
 
-        {/* Painel do Roteiro Gerado */}
         <Card className="bg-tubepro-darkAccent border-white/10 text-white">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Sparkles className="text-tubepro-yellow"/> Roteiro Gerado</CardTitle>
@@ -219,7 +214,27 @@ const Roteiro: React.FC = () => {
         </Card>
       </div>
 
-      {/* Dialog para Salvar */}
+      <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-center">
+        <ToolStatus 
+          status="active" 
+          serviceName="Serviço de roteirização ativo" 
+        />
+        <ToolInfoModal
+          triggerText="Sobre o criador de roteiros"
+          title="Criador de Roteiros IA"
+          description="Informações sobre a ferramenta de geração de roteiros."
+        >
+          <InfoBlock title="Como funciona o serviço">
+            <p>Através de um briefing estratégico, a IA entende a fundo sua visão para o vídeo.</p>
+            <p>Ela então atua como um roteirista profissional, criando um texto conversacional e estruturado, dividido em partes, pronto para ser gravado.</p>
+          </InfoBlock>
+          <InfoBlock title="Limites e custos">
+            <p>A geração de cada roteiro consome TubeCoins, com o custo variando conforme a profundidade (curto, médio, longo) escolhida.</p>
+            <p>O objetivo é criar roteiros que maximizem a retenção da audiência, justificando o investimento.</p>
+          </InfoBlock>
+        </ToolInfoModal>
+      </div>
+
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">
           <DialogHeader>
