@@ -3,7 +3,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import type { AuthUser } from '@supabase/supabase-js';
 
+// Interface do Usuário permanece a mesma
 export interface User {
   id: string;
   name: string;
@@ -21,13 +24,17 @@ export interface User {
   }[];
 }
 
+// NOVO: Tipagem para o estado de uma ação assíncrona
+type AuthActionStatus = 'idle' | 'loading' | 'error' | 'success';
+
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  isLoading: boolean;
+  isLoading: boolean; // Mantido para o carregamento inicial da sessão
+  actionStatus: AuthActionStatus; // NOVO: Estado para ações específicas (login, registro)
   spendCoins: (amount: number, feature: string) => Promise<boolean>;
   earnCoins: (amount: number, reason: string) => Promise<void>;
   earnExperience: (amount: number) => Promise<void>;
@@ -49,48 +56,115 @@ const calculateExperienceForLevel = (level: number) => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Apenas para o carregamento inicial
+  const [actionStatus, setActionStatus] = useState<AuthActionStatus>('idle'); // Estado para ações
+  const navigate = useNavigate();
 
-  const fetchUserProfile = useCallback(async (supabaseUser: any) => {
+  const fetchUserProfile = useCallback(async (supabaseUser: AuthUser | null) => {
     if (!supabaseUser) {
       setUser(null);
-      return;
+      return null;
     }
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', supabaseUser.id).single();
-      if (error && error.code !== 'PGRST116') throw error;
-      if (data) {
-        setUser(data as User);
-      } else {
-        const newUserProfile = { id: supabaseUser.id, name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0] || 'Novo Usuário', email: supabaseUser.email };
+      
+      // Se o perfil não existe, criamos um
+      if (error && error.code === 'PGRST116') {
+        const newUserProfile = { 
+            id: supabaseUser.id, 
+            name: supabaseUser.user_metadata?.full_name || supabaseUser.email?.split('@')[0] || 'Novo Usuário', 
+            email: supabaseUser.email 
+        };
         const { data: createdProfile, error: insertError } = await supabase.from('profiles').insert(newUserProfile).select().single();
         if (insertError) throw insertError;
         setUser(createdProfile as User);
+        return createdProfile as User;
+      }
+
+      if (error) throw error;
+      
+      if (data) {
+        setUser(data as User);
+        return data as User;
       }
     } catch (error: any) {
-      toast.error("Erro ao carregar o perfil do usuário.", { description: error.message });
+      toast.error("Erro ao carregar o perfil.", { description: error.message });
       await supabase.auth.signOut();
       setUser(null);
     }
+    return null;
   }, []);
 
   useEffect(() => {
-    setIsLoading(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      fetchUserProfile(session?.user).finally(() => setIsLoading(false));
-    });
+    const checkUser = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            await fetchUserProfile(session.user);
+        }
+        setIsLoading(false);
+    };
+
+    checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        await fetchUserProfile(session?.user);
-        setIsLoading(false);
+      (_event, session) => {
+        fetchUserProfile(session?.user);
       }
     );
+
     return () => {
       authListener?.subscription.unsubscribe();
     };
   }, [fetchUserProfile]);
 
+
+  // Otimização das Funções de Ação (login, register, etc.)
+  const handleAuthAction = async (action: () => Promise<any>, successMessage: string) => {
+    setActionStatus('loading');
+    try {
+        await action();
+        toast.success(successMessage);
+        setActionStatus('success');
+    } catch (error: any) {
+        toast.error(error.message || 'Ocorreu uma falha na autenticação.');
+        setActionStatus('error');
+        throw error; // Propaga o erro para o componente que chamou
+    } finally {
+        // Delay para resetar o status, permitindo que a UI reaja
+        setTimeout(() => setActionStatus('idle'), 1500);
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    await handleAuthAction(
+      () => supabase.auth.signInWithPassword({ email, password }).then(({ error }) => { if (error) throw error; }),
+      'Login realizado com sucesso!'
+    );
+    navigate('/');
+  };
+
+  const register = async (name: string, email: string, password: string) => {
+    await handleAuthAction(
+      () => supabase.auth.signUp({ email, password, options: { data: { full_name: name } } }).then(({ error }) => { if (error) throw error; }),
+      'Verifique seu e-mail para confirmar a conta.'
+    );
+  };
+  
+  // Otimização da função de logout
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    navigate('/login'); // Usa o hook do react-router-dom para navegação
+  };
+
+  const resetPassword = async (email:string) => {
+    await handleAuthAction(
+      () => supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/update-password` }),
+      'Link para recuperação de senha enviado.'
+    );
+  };
+
+  // Funções de gamificação (permanecem iguais, mas poderiam ser movidas para um hook próprio no futuro)
   const earnCoins = async (amount: number, reason: string) => {
     if (!user) return;
     const newTotal = user.tubecoins + amount;
@@ -141,29 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  };
-
-  const register = async (name: string, email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
-    if (error) throw error;
-    toast.info('Verifique seu e-mail para confirmar a conta.');
-  };
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    window.location.href = '/login';
-  };
-
-  const resetPassword = async (email:string) => {
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/update-password` });
-    toast.success(`Link para recuperação de senha enviado para o seu e-mail.`);
-  };
-
-  const value = { user, login, register, logout, resetPassword, isLoading, spendCoins, earnCoins, earnExperience };
+  const value = { user, login, register, logout, resetPassword, isLoading, actionStatus, spendCoins, earnCoins, earnExperience };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

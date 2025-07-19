@@ -9,7 +9,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Key, LogIn, UserPlus } from 'lucide-react';
+import { Key, LogIn, UserPlus, Loader2 } from 'lucide-react'; // Importamos o ícone de Loader
 import BackButton from '@/components/BackButton';
 
 const Login: React.FC = () => {
@@ -19,7 +19,9 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [resetEmail, setResetEmail] = useState('');
-  const { login, register, resetPassword, isLoading, user } = useAuth();
+  
+  // MUDANÇA 1: Desestruturamos 'actionStatus' e renomeamos 'isLoading' para 'isAuthLoading'
+  const { login, register, resetPassword, isLoading: isAuthLoading, actionStatus, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,20 +39,18 @@ const Login: React.FC = () => {
     try {
       if (isLogin) {
         await login(email, password);
-        navigate(from);
-        toast.success('Login realizado com sucesso!');
+        // A navegação já é tratada dentro do hook de auth
       } else {
         if (name.trim() === '') {
           toast.error('Por favor, insira seu nome');
           return;
         }
         await register(name, email, password);
-        // A lógica de navegação após o registro pode variar.
-        // Geralmente, o usuário precisará confirmar o e-mail.
       }
     } catch (error: any) {
-      console.error('Erro na autenticação:', error);
-      toast.error(error.message || 'Falha na autenticação.');
+      // A notificação de erro já é tratada pelo hook,
+      // mas mantemos o catch para evitar que a aplicação quebre.
+      console.error('Falha na autenticação:', error.message);
     }
   };
 
@@ -66,14 +66,17 @@ const Login: React.FC = () => {
       setIsResetPasswordOpen(false);
       setResetEmail('');
     } catch (error: any) {
-      console.error('Erro na recuperação de senha:', error);
-      toast.error(error.message || 'Falha ao enviar link de recuperação.');
+      console.error('Erro na recuperação de senha:', error.message);
+      // O toast de erro já é mostrado pelo hook
     }
   };
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
   };
+
+  // MUDANÇA 2: Criamos uma variável para controlar o estado de carregamento da ação
+  const isActionLoading = actionStatus === 'loading';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-tubepro-dark p-4">
@@ -111,6 +114,7 @@ const Login: React.FC = () => {
                     className="bg-tubepro-dark border-white/10"
                     required={!isLogin}
                     autoComplete="name"
+                    disabled={isActionLoading} // Desabilita durante a ação
                   />
                 </div>
               )}
@@ -128,6 +132,7 @@ const Login: React.FC = () => {
                   className="bg-tubepro-dark border-white/10"
                   required
                   autoComplete="email"
+                  disabled={isActionLoading} // Desabilita durante a ação
                 />
               </div>
 
@@ -144,17 +149,20 @@ const Login: React.FC = () => {
                   className="bg-tubepro-dark border-white/10"
                   required
                   autoComplete={isLogin ? "current-password" : "new-password"}
+                  disabled={isActionLoading} // Desabilita durante a ação
                 />
               </div>
 
               <Button
                 type="submit"
                 className="w-full btn-gradient hover:opacity-90"
-                disabled={isLoading}
+                disabled={isActionLoading || isAuthLoading} // MUDANÇA 3: Desabilita no carregamento da ação
               >
-                {isLoading
-                  ? 'Processando...'
-                  : isLogin ? 'Entrar' : 'Criar Conta'}
+                {isActionLoading ? (
+                  <><Loader2 className="animate-spin" /> Processando...</>
+                ) : (
+                  isLogin ? 'Entrar' : 'Criar Conta'
+                )}
               </Button>
 
               {isLogin && (
@@ -176,6 +184,7 @@ const Login: React.FC = () => {
               variant="ghost"
               onClick={toggleAuthMode}
               className="text-white/70 hover:text-white w-full"
+              disabled={isActionLoading}
             >
               {isLogin
                 ? 'Não tem uma conta? Registre-se'
@@ -220,6 +229,7 @@ const Login: React.FC = () => {
                 className="bg-tubepro-dark border-white/10"
                 required
                 autoComplete="email"
+                disabled={isActionLoading}
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -231,8 +241,8 @@ const Login: React.FC = () => {
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="btn-gradient" disabled={isLoading}>
-                {isLoading ? "Enviando..." : "Enviar link"}
+              <Button type="submit" className="btn-gradient" disabled={isActionLoading}>
+                {isActionLoading ? "Enviando..." : "Enviar link"}
               </Button>
             </div>
           </form>

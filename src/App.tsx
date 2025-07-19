@@ -34,54 +34,56 @@ const queryClient = new QueryClient({
   },
 });
 
-// **NOVA ESTRUTURA**
-// Criamos um componente apenas para as rotas.
+// **CORREÇÃO APLICADA AQUI**
+// O componente de rotas agora não tem mais o BrowserRouter
 const AppRoutes = () => {
     return (
-        <BrowserRouter>
-          <Routes>
-            {/* Rotas públicas que não usam o layout principal */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/update-password" element={<ResetPassword />} />
-            <Route path="/logout" element={<Navigate to="/login" />} />
+        <Routes>
+          {/* Rotas públicas que não usam o layout principal */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/update-password" element={<ResetPassword />} />
+          <Route path="/logout" element={<Navigate to="/login" />} />
 
-            {/* Rotas Protegidas que agora usam o Layout como pai */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="assistente" element={<Assistente />} />
-              <Route path="ideias" element={<Ideias />} />
-              <Route path="roteiro" element={<Roteiro />} />
-              <Route path="transcricao" element={<Transcricao />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="historico" element={<Historico />} />
-            </Route>
+          {/* Rotas Protegidas que agora usam o Layout como pai */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            {/* A rota "index" renderiza o Dashboard na raiz "/" */}
+            <Route index element={<Dashboard />} />
+            <Route path="assistente" element={<Assistente />} />
+            <Route path="ideias" element={<Ideias />} />
+            <Route path="roteiro" element={<Roteiro />} />
+            <Route path="transcricao" element={<Transcricao />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="historico" element={<Historico />} />
+          </Route>
 
-            {/* Rota de fallback */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+          {/* Rota de fallback */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
     )
 }
 
-// O componente App agora SÓ gerencia os provedores.
+// O componente App agora gerencia os provedores na ordem correta
 const App = () => {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>  {/* <- O AuthProvider agora envolve TUDO */}
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppRoutes /> {/* <- As rotas são carregadas aqui dentro */}
-          </TooltipProvider>
-        </AuthProvider>
+        {/* O BrowserRouter agora envolve o AuthProvider */}
+        <BrowserRouter>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes /> {/* As rotas são carregadas aqui dentro */}
+            </TooltipProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </React.StrictMode>
   );

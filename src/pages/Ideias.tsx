@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-// MUDANÇA IMPORTANTE: Importamos a instância 'supabase' diretamente
+// NOVO: Importamos a função diretamente do nosso serviço de API
+import { generateContentPlan } from '@/services/api';
 import { supabase } from '@/lib/supabase';
 import { ContentPlanDisplay } from '@/components/ContentPlanDisplay';
 import PageHeader from '@/components/PageHeader';
@@ -48,54 +49,33 @@ const Ideias: React.FC = () => {
     setContentPlan(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Usuário não autenticado.");
-
-      const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mestre-de-conteudo`,
-          {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`,
-                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-              },
-              body: JSON.stringify({ topic, audience }),
-          }
-      );
-
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("Não foi possível ler a resposta do servidor.");
-
+      // MUDANÇA SIGNIFICATIVA: A lógica complexa de 'fetch' foi substituída
+      // por uma única chamada de função ao nosso novo serviço.
+      const stream = await generateContentPlan(topic, audience);
+      
+      const reader = stream.getReader();
       const decoder = new TextDecoder();
       let accumulatedResponse = '';
 
       while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulatedResponse += decoder.decode(value, { stream: true });
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulatedResponse += decoder.decode(value, { stream: true });
       }
 
       const cleanedResponse = accumulatedResponse.replace(/```json|```/g, '').trim();
       const finalPlan = JSON.parse(cleanedResponse);
 
       setContentPlan({
-          ...finalPlan,
-          titles: finalPlan.titles && Array.isArray(finalPlan.titles) ? [finalPlan.title, ...finalPlan.titles] : [finalPlan.title],
+        ...finalPlan,
+        titles: finalPlan.titles && Array.isArray(finalPlan.titles) ? [finalPlan.title, ...finalPlan.titles] : [finalPlan.title],
       });
 
       toast.success("Seu plano de conteúdo foi gerado pela IA!");
 
     } catch (error: any) {
-      console.error('Erro ao chamar a IA:', error);
-      toast.error("A IA não conseguiu gerar o plano.", {
-          description: error.message || "Tente refazer sua pergunta ou aguarde um momento."
-      });
+      console.error('Erro ao gerar plano de conteúdo:', error);
+      // O toast de erro já é tratado pelo apiService, então não precisamos de outro aqui.
     } finally {
       setIsLoading(false);
     }

@@ -1,80 +1,107 @@
+// src/services/api.ts
+
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 import type { TranscriptionResult } from '@/utils/transcriptionService';
 
 /**
- * Simula a transcrição de um vídeo do YouTube.
- * Em uma implementação real, esta função faria uma chamada para o seu backend.
- * @param url - A URL do vídeo do YouTube.
+ * Helper: Obtém o token de acesso da sessão atual do Supabase.
+ * Lança um erro se o usuário não estiver autenticado.
+ */
+const getAccessToken = async (): Promise<string> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("Usuário não autenticado. Por favor, faça login novamente.");
+  }
+  return session.access_token;
+};
+
+/**
+ * Helper: Função genérica para chamar uma Supabase Function e processar a resposta como um stream de texto.
+ */
+const invokeStreamableFunction = async (functionName: string, body: object): Promise<ReadableStream<Uint8Array>> => {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP Error: ${response.status}`);
+    }
+    if (!response.body) {
+      throw new Error("A resposta da função não contém um corpo (body).");
+    }
+    return response.body;
+  } catch (error: any) {
+    toast.error(`Erro na função '${functionName}'.`, { description: error.message });
+    throw error;
+  }
+};
+
+// --- Implementações Reais das Funções de IA ---
+
+export const generateContentPlan = (topic: string, audience: string): Promise<ReadableStream<Uint8Array>> => {
+  return invokeStreamableFunction('mestre-de-conteudo', { topic, audience });
+};
+
+export const generateScript = (userResponses: { [key: number]: string }): Promise<ReadableStream<Uint8Array>> => {
+  return invokeStreamableFunction('roteirista-ia', userResponses);
+};
+
+export const getAssistantResponse = (prompt: string): Promise<ReadableStream<Uint8Array>> => {
+  return invokeStreamableFunction('assistente-ia', { prompt });
+};
+
+/**
+ * Chama a Supabase Function 'transcritor-ia' para obter a transcrição de um vídeo do YouTube.
  */
 export async function transcribeYoutubeVideo(url: string): Promise<TranscriptionResult> {
-  console.log(`Iniciando transcrição da URL: ${url}`);
+    try {
+        const accessToken = await getAccessToken();
+        const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcritor-ia`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify({ videoURL: url }),
+            }
+        );
 
-  // Simulação de delay da API
-  await new Promise(resolve => setTimeout(resolve, 2000));
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
 
-  // Simulação de possíveis erros
-  if (url.includes('error')) {
-    throw new Error('Falha ao transcrever: Vídeo indisponível ou com restrições.');
-  }
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
 
-  // Dados simulados para demonstração
-  return {
-    text: `[00:00] Olá a todos e bem-vindos ao canal!\n[00:05] Hoje vamos falar sobre como criar conteúdo para o YouTube.\n[00:12] Uma das coisas mais importantes é ter um bom roteiro.\n[00:18] Também é essencial usar boas ferramentas de edição.\n[00:25] Não se esqueça de otimizar seu vídeo para SEO.\n[00:32] Use títulos chamativos e descrições bem detalhadas.\n[00:40] Thumbnails atraentes são cruciais para aumentar o CTR.\n[00:48] Interaja com sua audiência nos comentários.\n[00:55] Consistência é chave para crescer no YouTube.\n[01:02] Obrigado por assistir, não se esqueça de se inscrever!`,
-    segments: [
-      { id: 1, start: 0, end: 5, text: "Olá a todos e bem-vindos ao canal!" },
-      { id: 2, start: 5, end: 12, text: "Hoje vamos falar sobre como criar conteúdo para o YouTube." },
-    ]
-  };
+        // CORREÇÃO: Retorna o objeto completo (com texto e segmentos) como o tipo TranscriptionResult
+        return data as TranscriptionResult;
+
+    } catch (error: any) {
+        toast.error('Erro ao transcrever o vídeo.', { description: error.message });
+        throw error;
+    }
 }
 
 /**
- * Simula a transcrição de um arquivo de vídeo/áudio.
- * @param file - O arquivo a ser transcrito.
+ * (PENDENTE) Simula a transcrição de um arquivo de vídeo/áudio.
  */
 export async function transcribeVideoFile(file: File): Promise<TranscriptionResult> {
-  console.log(`Iniciando transcrição do arquivo: ${file.name}`);
-
-  // Simulação de delay da API
-  await new Promise(resolve => setTimeout(resolve, 2500));
-
-  if (file.name.includes('error')) {
-    throw new Error('Falha ao transcrever: Formato de arquivo não suportado.');
-  }
-
-  // Dados simulados para demonstração
-  return {
-    text: `[00:00] Este é um exemplo de transcrição de arquivo.\n[00:06] A ferramenta funciona tanto para vídeos do YouTube quanto para arquivos.\n[00:13] As transcrições são precisas e incluem marcações de tempo.\n[00:20] Você pode copiar a transcrição e usá-la como quiser.\n[00:27] Esta é uma demonstração do serviço de transcrição.`,
-    segments: [
-      { id: 1, start: 0, end: 6, text: "Este é um exemplo de transcrição de arquivo." },
-      { id: 2, start: 6, end: 13, text: "A ferramenta funciona tanto para vídeos do YouTube quanto para arquivos." },
-    ]
-  };
-}
-
-/**
- * Simula a obtenção de uma resposta do assistente de IA.
- * @param prompt - A pergunta ou solicitação do usuário.
- */
-export async function getAssistantResponse(prompt: string): Promise<string> {
-    console.log(`Enviando prompt para o assistente: ${prompt}`);
-    
-    // Simulação de delay da API
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Simulação de possíveis erros
-    if (prompt.toLowerCase().includes('quebrar')) {
-        throw new Error("Não foi possível processar sua solicitação no momento.");
-    }
-
-    // Respostas simuladas baseadas em palavras-chave
-    if (prompt.toLowerCase().includes('ideia')) {
-        return 'Aqui estão algumas ideias para vídeos:\n\n1. "10 Dicas para Melhorar a Qualidade do Áudio"\n2. "Como Crescer no YouTube em 2025"\n3. "Tutorial: Edição Avançada com DaVinci Resolve"\n4. "Tendências de Conteúdo que Estão Bombando"\n5. "Guia Completo de Iluminação para Vídeos Profissionais"';
-    } 
-    if (prompt.toLowerCase().includes('roteiro')) {
-        return 'Para criar um roteiro eficaz, siga esta estrutura:\n\n1. Introdução cativante (10-15 segundos)\n2. Apresentação do problema ou tema\n3. Desenvolvimento principal com 3-5 pontos chave\n4. Demonstração ou exemplos práticos\n5. Conclusão e call-to-action\n\nLembre-se de manter uma linguagem clara e direta. Foque no benefício que o espectador terá ao assistir seu vídeo até o final.';
-    }
-    if (prompt.toLowerCase().includes('seo') || prompt.toLowerCase().includes('algoritmo')) {
-        return 'Dicas de SEO para YouTube:\n\n• Use palavras-chave relevantes no título, descrição e tags\n• Crie thumbnails com alto CTR (taxa de cliques)\n• Aumente o tempo de visualização com conteúdo envolvente\n• Incentive interações (likes, comentários, compartilhamentos)\n• Publique consistentemente\n• Utilize hashtags estratégicas\n• Crie playlists temáticas\n• Otimize os primeiros 100 caracteres da descrição';
-    }
-    
-    return 'Como posso ajudar você a criar conteúdo melhor para o YouTube? Posso fornecer dicas sobre roteiros, ideias de vídeo, estratégias de SEO, edição, ou qualquer outro aspecto de produção de conteúdo.';
+  console.warn(`(MOCK) Chamada para transcrever arquivo: ${file.name}`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  toast.info("A transcrição de arquivos ainda não foi implementada.");
+  throw new Error("Função de upload de arquivo não implementada.");
 }

@@ -1,7 +1,7 @@
 // src/pages/Roteiro.tsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Bot, User, Send, Sparkles, Loader2, ChevronDown, Timer, Copy, Check, Save } from 'lucide-react';
+import { FileText, Bot, User, Send, Sparkles, Loader2, Timer, Copy, Check, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,14 +9,14 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-// MUDANÇA IMPORTANTE: Importamos a instância 'supabase' diretamente
+import { generateScript } from '@/services/api'; 
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { marked } from 'marked';
 import PageHeader from '@/components/PageHeader';
 
 // --- Tipos e Estruturas de Dados ---
-type Stage = 'asking' | 'generating' | 'revealing' | 'finished';
+type Stage = 'asking' | 'generating' | 'finished';
 interface ChatMessage { sender: 'ai' | 'user'; text: string; }
 interface UserResponses { [key: number]: string; }
 
@@ -35,16 +35,20 @@ const DURATION_OPTIONS = [ "Curto (3-5 min)", "Médio (8-12 min)", "Longo (15+ m
 const ScriptPart: React.FC<{ content: string }> = ({ content }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
-        navigator.clipboard.writeText(content).then(() => {
+        // Remove o separador antes de copiar para a área de transferência
+        const textToCopy = content.replace(/---PART-BREAK---/g, '');
+        navigator.clipboard.writeText(textToCopy).then(() => {
             setCopied(true);
             toast.success("Parte do roteiro copiada!");
             setTimeout(() => setCopied(false), 2000);
         });
     };
-    const rawMarkup = marked.parse(content.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/,""));
+    // Renderiza o conteúdo, mas esconde o separador visualmente
+    const cleanContent = content.replace(/---PART-BREAK---/g, '');
+    const rawMarkup = marked.parse(cleanContent.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/,""));
 
     return (
-        <div className="relative group pb-4 mb-4 border-b border-dashed border-white/10">
+        <div className="relative group pb-4 mb-4 border-b border-dashed border-white/10 last:border-b-0">
             <Button size="icon" variant="ghost" onClick={handleCopy} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8">
                 {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-white/70" />}
             </Button>
@@ -63,46 +67,44 @@ const Roteiro: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([ { sender: 'ai', text: `Olá! Eu sou seu copiloto de roteiros. Para arquitetar uma obra-prima para seu canal, preciso entender sua visão a fundo. Vamos começar:`}, { sender: 'ai', text: STRATEGIC_QUESTIONS[0] } ]);
   const [userResponses, setUserResponses] = useState<UserResponses>({});
   const [currentUserInput, setCurrentUserInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [scriptParts, setScriptParts] = useState<string[]>([]);
-  const [revealedScriptParts, setRevealedScriptParts] = useState(0);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [scriptTitle, setScriptTitle] = useState('');
   const { user } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const scriptEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatHistory]);
+  useEffect(() => { scriptEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [scriptParts]);
 
   const processAndGenerate = async (finalResponses: UserResponses) => {
-    setIsLoading(true); setScriptParts([]); setRevealedScriptParts(0); setStage('generating');
-    let accumulatedResponse = '';
+    setStage('generating');
+    setScriptParts(['']); // Inicia com uma parte vazia para renderizar o loader
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Usuário não autenticado.");
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/roteirista-ia`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
-          body: JSON.stringify(finalResponses),
-      });
-      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error || `HTTP error! status: ${response.status}`); }
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("Não foi possível ler a resposta do servidor.");
+      const stream = await generateScript(finalResponses);
+      const reader = stream.getReader();
       const decoder = new TextDecoder();
+      let accumulatedResponse = '';
+
       while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulatedResponse += decoder.decode(value, { stream: true });
+        const { done, value } = await reader.read();
+        if (done) {
+            toast.success("O Roteiro Mestre está pronto!");
+            setStage('finished');
+            break;
+        };
+        accumulatedResponse += decoder.decode(value, { stream: true });
+        
+        // MUDANÇA PRINCIPAL: Atualizamos o estado em tempo real
+        // O split cria um array com as partes do roteiro.
+        // Se uma parte ainda está sendo recebida, ela não terá o "---PART-BREAK---" final.
+        setScriptParts(accumulatedResponse.split('---PART-BREAK---'));
       }
-      const parts = accumulatedResponse.split('---PART-BREAK---').filter(p => p.trim() !== '');
-      setScriptParts(parts);
-      setRevealedScriptParts(1);
-      setStage('revealing');
-      toast.success("O Roteiro Mestre está pronto!");
     } catch (error: any) {
-      toast.error("A IA não conseguiu gerar o roteiro.", { description: error.message || "Tente novamente mais tarde." });
-      setStage('asking');
-    } finally {
-      setIsLoading(false);
+      console.error("Erro ao gerar roteiro:", error.message);
+      setStage('asking'); // Retorna ao estágio inicial em caso de erro
+      setScriptParts([]); // Limpa as partes do roteiro
     }
   }
 
@@ -125,21 +127,6 @@ const Roteiro: React.FC = () => {
     }
   };
 
-  const handleRevealNext = () => {
-    if (revealedScriptParts < scriptParts.length) {
-      setRevealedScriptParts(p => p + 1);
-    }
-    if (revealedScriptParts === scriptParts.length - 1) {
-        setStage('finished');
-    }
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-        toast.success("Copiado para a área de transferência!");
-    });
-  };
-
   const handleSaveScript = async () => {
     if (!scriptTitle.trim()) {
         toast.error("Por favor, dê um título ao seu roteiro.");
@@ -150,7 +137,7 @@ const Roteiro: React.FC = () => {
         return;
     }
 
-    const fullScript = scriptParts.join('\n\n---PART-BREAK---\n\n');
+    const fullScript = scriptParts.join('\n\n'); // Junta as partes com uma quebra de linha dupla
 
     const { error } = await supabase.from('scripts').insert({
         user_id: user.id,
@@ -167,18 +154,22 @@ const Roteiro: React.FC = () => {
     }
   };
 
+  const copyFullScript = () => {
+    const fullScript = scriptParts.join('\n\n');
+    navigator.clipboard.writeText(fullScript).then(() => {
+        toast.success("Roteiro completo copiado!");
+    });
+  }
+
   return (
     <>
       <PageHeader
-        title={
-          <>
-            Criador de <span className="text-white font-bold">Roteiros</span>
-          </>
-        }
+        title={<>Criador de <span className="text-white font-bold">Roteiros</span></>}
         description="Responda um briefing estratégico e receba um roteiro profundo e conversacional, pronto para ser gravado."
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Painel de Briefing (Chat) */}
         <Card className="bg-tubepro-darkAccent border-white/10 text-white">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Bot className="text-tubepro-yellow"/> Briefing com a IA</CardTitle>
@@ -200,6 +191,8 @@ const Roteiro: React.FC = () => {
                 {stage === 'asking' && (currentQuestionIndex === STRATEGIC_QUESTIONS.length - 1 ? (<div className="space-y-2">{DURATION_OPTIONS.map(opt => <Button key={opt} variant="outline" className="w-full justify-start" onClick={() => handleResponseSubmit(opt)}><Timer className="mr-2 h-4 w-4"/> {opt}</Button>)}</div>) : (<div className="flex items-center gap-2"><Textarea value={currentUserInput} onChange={(e) => setCurrentUserInput(e.target.value)} placeholder={QUESTION_EXAMPLES[currentQuestionIndex]} className="bg-tubepro-dark border-white/10" onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleResponseSubmit(currentUserInput); } }} /><Button onClick={() => handleResponseSubmit(currentUserInput)} className="btn-gradient h-full"><Send className="h-5 w-5" /></Button></div>))}
             </CardContent>
         </Card>
+
+        {/* Painel do Roteiro Gerado */}
         <Card className="bg-tubepro-darkAccent border-white/10 text-white">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Sparkles className="text-tubepro-yellow"/> Roteiro Gerado</CardTitle>
@@ -207,16 +200,26 @@ const Roteiro: React.FC = () => {
             </CardHeader>
             <CardContent>
                 <div className="h-[28.5rem] overflow-y-auto space-y-4 p-4 rounded-md bg-tubepro-dark">
-                    {isLoading && <div className="flex flex-col items-center justify-center h-full text-center text-white/70"><Loader2 className="h-10 w-10 animate-spin text-red-500" /><p className="font-semibold">A IA está escrevendo...</p></div>}
-                    {(stage === 'revealing' || stage === 'finished') && scriptParts.slice(0, revealedScriptParts).map((part, index) => <ScriptPart key={index} content={part} />)}
-                    {stage === 'asking' && !isLoading && <div className="flex items-center justify-center h-full text-center text-white/50"><p>Seu roteiro aparecerá aqui após o briefing.</p></div>}
+                    {stage === 'generating' && <div className="flex flex-col items-center justify-center h-full text-center text-white/70"><Loader2 className="h-10 w-10 animate-spin text-red-500" /><p className="font-semibold mt-2">A IA está escrevendo...</p></div>}
+                    
+                    {scriptParts.length > 0 && scriptParts[0] !== '' && scriptParts.map((part, index) => (
+                        <ScriptPart key={index} content={part} />
+                    ))}
+
+                    {stage === 'asking' && <div className="flex items-center justify-center h-full text-center text-white/50"><p>Seu roteiro aparecerá aqui após o briefing.</p></div>}
+                    <div ref={scriptEndRef} />
                 </div>
-                {stage === 'revealing' && <div className="text-center mt-4"><Button onClick={handleRevealNext} variant="outline" className="animate-pulse">Devo seguir? (Revelar Parte {revealedScriptParts + 1})<ChevronDown className="ml-2 h-4 w-4" /></Button></div>}
-                {stage === 'finished' && <div className="flex items-center justify-center gap-2 mt-4"><Button variant="outline" onClick={() => copyToClipboard(scriptParts.join('\n\n'))}><Copy className="mr-2 h-4 w-4" /> Copiar Tudo</Button><Button className="btn-gradient" onClick={() => setIsSaveDialogOpen(true)}><Save className="mr-2 h-4 w-4"/> Salvar Roteiro</Button></div>}
+                {stage === 'finished' && (
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                        <Button variant="outline" onClick={copyFullScript}><Copy className="mr-2 h-4 w-4" /> Copiar Tudo</Button>
+                        <Button className="btn-gradient" onClick={() => setIsSaveDialogOpen(true)}><Save className="mr-2 h-4 w-4"/> Salvar Roteiro</Button>
+                    </div>
+                )}
             </CardContent>
         </Card>
       </div>
 
+      {/* Dialog para Salvar */}
       <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
         <DialogContent className="bg-tubepro-darkAccent border-white/10 text-white">
           <DialogHeader>
