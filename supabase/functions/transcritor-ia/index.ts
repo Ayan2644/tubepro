@@ -1,61 +1,87 @@
-// supabase/functions/transcritor-ia/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.15.0";
+import { corsHeaders } from '../_shared/cors.ts';
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
-import { YoutubeTranscript } from "https://esm.sh/youtube-transcript@1.0.6";
+// Função auxiliar para converter o áudio (Blob) para o formato base64, que o Gemini aceita
+async function blobToBase64(blob: Blob): Promise<string> {
+  const reader = new FileReader();
+  const promise = new Promise<string>((resolve, reject) => {
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+  });
+  reader.readAsDataURL(blob);
+  return promise;
+}
 
 serve(async (req) => {
-  // Se for uma requisição OPTIONS (pre-flight), apenas retorne 'ok' com os headers CORS.
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  // Tratamento da requisição OPTIONS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // ---- MUDANÇA PRINCIPAL AQUI ----
-    // Estamos lendo o corpo (body) da requisição para obter a URL do vídeo.
-    const body = await req.json();
-    const videoURL = body.videoURL;
-    // ---------------------------------
-
+    const { videoURL } = await req.json();
     if (!videoURL) {
-      throw new Error("A URL do vídeo é obrigatória e não foi fornecida.");
+      throw new Error('A URL do vídeo é obrigatória.');
     }
 
-    // A lógica de busca de legendas continua a mesma, que já é robusta.
-    let transcriptParts;
-    try {
-      // Tenta buscar em Português primeiro
-      transcriptParts = await YoutubeTranscript.fetchTranscript(videoURL, { lang: 'pt' });
-    } catch (e) {
-      console.warn("Legenda em PT não encontrada, tentando em EN.");
-      // Se falhar, tenta em Inglês como fallback
-      try {
-        transcriptParts = await YoutubeTranscript.fetchTranscript(videoURL, { lang: 'en' });
-      } catch (finalError) {
-        // Se ambos falharem, lança um erro claro.
-        throw new Error("Este vídeo não possui legendas disponíveis ou elas foram desativadas.");
-      }
+    // Pega a chave da API do Gemini dos segredos do projeto
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      throw new Error('A chave GEMINI_API_KEY não foi configurada nos segredos.');
     }
 
-    if (!transcriptParts || transcriptParts.length === 0) {
-      throw new Error("As legendas para este vídeo foram encontradas, mas estão vazias.");
+    // 1. Extrai o áudio do vídeo do YouTube usando yt-dlp
+    const command = new Deno.Command('yt-dlp', {
+      args: [
+        '-x', // Extrair áudio
+        '--audio-format', 'mp3',
+        '-o', '-', // Envia o resultado para a saída padrão (stdout)
+        videoURL,
+      ],
+    });
+
+    const { code, stdout, stderr } = await command.output();
+    if (code !== 0) {
+      throw new Error(`yt-dlp falhou: ${new TextDecoder().decode(stderr)}`);
     }
 
-    // Junta todas as partes da legenda em um único texto.
-    const fullTranscript = transcriptParts.map(part => part.text).join(" ");
+    const audioBlob = new Blob([stdout], { type: 'audio/mp3' });
 
-    // Retorna a transcrição completa como um objeto JSON.
-    return new Response(JSON.stringify({ transcription: fullTranscript }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // 2. Prepara e envia o áudio para a API do Gemini 1.5 Pro
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
+    const audioBase64 = await blobToBase64(audioBlob);
+
+    const audioPart = {
+      inlineData: {
+        data: audioBase64,
+        mimeType: 'audio/mp3',
+      },
+    };
+
+    const prompt = "Transcreva este áudio na íntegra. Retorne APENAS o texto transcrito, sem nenhuma introdução, formatação especial ou comentários adicionais.";
+
+    const result = await model.generateContent([prompt, audioPart]);
+    const response = await result.response;
+    const transcriptionText = response.text();
+
+    // 3. Retorna a transcrição para o nosso aplicativo
+    return new Response(JSON.stringify({ transcription: transcriptionText }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error) {
-    console.error("Erro na função transcritor-ia:", error.message);
-    // Em caso de erro, retorna uma mensagem de erro clara.
+    console.error('Erro na função transcribe-youtube (Gemini):', error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
     });
   }
 });
