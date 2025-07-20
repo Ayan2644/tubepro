@@ -3,7 +3,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import {
-  ChevronLeft, Home, Lightbulb, FilePen, Youtube, Bot, Settings, LogOut, User as UserIcon, Menu, LogIn, FolderArchive
+  ChevronLeft, Home, Lightbulb, FilePen, Youtube, Bot, Settings, LogOut, User as UserIcon, Menu, LogIn, FolderArchive, BarChart3 // <-- Importamos o BarChart3
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -13,7 +13,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNavigate, useLocation } from "react-router-dom"
 
-// Verifique se estes caminhos estão corretos e os arquivos existem.
 import TubeProLogoFull from '../assets/logo-white.png';
 import TubeProLogoIcon from '../assets/logo-icon.png';
 
@@ -57,37 +56,12 @@ const SidebarHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
     return(
         <div 
           ref={ref} 
-          className={cn(
-            "flex items-center p-4 h-24 shrink-0", 
-            collapsed ? "flex-col justify-start pt-2 gap-4" : "flex-row justify-between", // A linha modificada
-            className
-          )} 
+          className={cn("flex items-center p-4 h-24 shrink-0", collapsed ? "flex-col justify-start pt-2 gap-4" : "flex-row justify-between", className)} 
           {...props}
         >
-             {/* Logo Completa (visível quando expandido) */}
-             <img
-                src={TubeProLogoFull}
-                alt="TubePro Logo"
-                onClick={() => navigate('/')}
-                className={cn(
-                    "h-16 object-contain cursor-pointer",
-                    collapsed && "hidden" // Esconde quando recolhido
-                )}
-            />
-            
-            {/* Ícone da Logo (visível quando recolhido) */}
-            <img
-                src={TubeProLogoIcon}
-                alt="TubePro Icon"
-                onClick={() => setCollapsed(false)} // Clicar no ícone expande
-                className={cn(
-                    "h-10 w-10 object-contain cursor-pointer",
-                    !collapsed && "hidden" // Esconde quando expandido
-                )}
-            />
-            
-            {/* Botão de recolher/expandir */}
-            <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="shrink-0">
+             <img src={TubeProLogoFull} alt="TubePro Logo" onClick={() => navigate('/')} className={cn("h-16 object-contain cursor-pointer", collapsed && "hidden")} />
+             <img src={TubeProLogoIcon} alt="TubePro Icon" onClick={() => setCollapsed(false)} className={cn("h-10 w-10 object-contain cursor-pointer", !collapsed && "hidden")} />
+             <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="shrink-0">
                 <ChevronLeft className={cn("transition-transform duration-300", collapsed && "rotate-180")} />
             </Button>
         </div>
@@ -123,12 +97,7 @@ const SidebarLink = React.forwardRef<HTMLAnchorElement, SidebarLinkProps>(({ ico
         ref={ref}
         href={path}
         onClick={(e) => { e.preventDefault(); action ? action() : navigate(path); }}
-        className={cn(
-          buttonVariants({ variant: "ghost", size: "default" }),
-          "w-full justify-start gap-3",
-          isActive && "btn-gradient text-white",
-          collapsed && "w-10 h-10 p-0 justify-center"
-        )}
+        className={cn(buttonVariants({ variant: "ghost", size: "default" }), "w-full justify-start gap-3", isActive && "btn-gradient text-white", collapsed && "w-10 h-10 p-0 justify-center")}
         {...props}
       >
         <Icon className="h-5 w-5" />
@@ -159,6 +128,7 @@ const MobileSidebar: React.FC = () => {
 
     const menuItems = [
       { label: "Dashboard", icon: Home, path: "/" },
+      { label: "Analytics", icon: BarChart3, path: "/youtube-dashboard" }, // <-- ADICIONADO NOVO LINK
       { label: "Gerador de Ideias", icon: Lightbulb, path: "/ideias" },
       { label: "Criador de Roteiros", icon: FilePen, path: "/roteiro" },
       { label: "Transcrição", icon: Youtube, path: "/transcricao" },

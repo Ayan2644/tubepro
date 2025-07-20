@@ -1,13 +1,16 @@
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* === CORES OFICIAIS TUBEPRO === */
 :root {
   --tubepro-dark: #121212;
-  --tubepro-darkAccent: #1E1E1E;
-  --tubepro-red: #ed1b22;      /* Nova cor primária */
-  --tubepro-yellow: #fbe501;   /* Nova cor secundária */
+  --tubepro-darkAccent: #1e1e1e;
+  --tubepro-red: #ed1b22;
+  --tubepro-yellow: #fbe501;
+  /* Adicionando cores do gradiente de exemplo para a tela de conexão */
+  --tubepro-brand-start: #8a2be2; /* Roxo */
+  --tubepro-brand-end: #d6226f;   /* Rosa/Magenta */
 }
 
 body {
@@ -16,7 +19,6 @@ body {
   color: white;
 }
 
-/* Gradiente para textos, inspirado no modelo */
 .text-gradient {
   background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
   -webkit-background-clip: text;
@@ -25,95 +27,45 @@ body {
   text-fill-color: transparent;
 }
 
-/* Gradiente para botões e elementos de fundo */
 .btn-gradient {
   background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow));
-  color: white; /* Garante que o texto do botão seja legível */
+  color: white;
 }
 
 .btn-gradient:hover {
   opacity: 0.9;
 }
 
-/* Hover effect para cards */
-.card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card-hover:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(237, 27, 34, 0.15);
-}
-
-/* Estilos para textarea e input */
-textarea, input {
+textarea,
+input {
   background-color: var(--tubepro-dark) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   color: white !important;
 }
 
-textarea:focus, input:focus {
-  border-color: var(--tubepro-yellow) !important; /* Destaque com amarelo */
+textarea:focus,
+input:focus {
+  border-color: var(--tubepro-yellow) !important;
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(251, 229, 1, 0.2) !important;
 }
 
-/* Sidebar ativa */
-[data-active=true] {
+[data-active='true'] {
   background: linear-gradient(50deg, var(--tubepro-red), var(--tubepro-yellow)) !important;
   color: white !important;
 }
 
-/* Animação para o fundo do gradiente */
-.bg-animate {
-  background-size: 200% 200%;
-  animation: gradient-animation 10s ease infinite;
-}
-
-@keyframes gradient-animation {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-/* === ANIMAÇÕES PARA CABEÇALHO DAS PÁGINAS === */
-
-/* Animação para o brilho pulsante do ícone da logo */
 .icon-glow {
-  /* Sombra amarela que se expande, com um toque de vermelho */
   filter: drop-shadow(0 0 12px rgba(251, 229, 1, 0.5));
   animation: icon-pulse-glow 4s ease-in-out infinite;
 }
 
 @keyframes icon-pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     filter: drop-shadow(0 0 12px rgba(251, 229, 1, 0.5));
   }
   50% {
     filter: drop-shadow(0 0 20px rgba(237, 27, 34, 0.6));
-  }
-}
-
-/* Animação para o movimento do gradiente no título */
-.title-animate {
-  background-size: 200% 200%;
-  animation: gradient-animation 8s ease infinite;
-}
-
-/* Reutilizando a keyframe que você já tinha, mas a classe é para o título */
-@keyframes gradient-animation {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
   }
 }

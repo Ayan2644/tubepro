@@ -20,6 +20,7 @@ import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import ResetPassword from "./pages/ResetPassword";
 import Historico from "./pages/Historico";
+import YouTubeDashboard from "./pages/YouTubeDashboard"; // <-- 1. IMPORTAMOS O NOVO COMPONENTE
 import { AuthProvider } from "./hooks/useAuth";
 
 // Estilo global para a aplicação
@@ -34,8 +35,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// **CORREÇÃO APLICADA AQUI**
-// O componente de rotas agora não tem mais o BrowserRouter
 const AppRoutes = () => {
     return (
         <Routes>
@@ -61,6 +60,7 @@ const AppRoutes = () => {
             <Route path="transcricao" element={<Transcricao />} />
             <Route path="profile" element={<Profile />} />
             <Route path="historico" element={<Historico />} />
+            <Route path="youtube-dashboard" element={<YouTubeDashboard />} /> {/* <-- 2. ADICIONAMOS A NOVA ROTA */}
           </Route>
 
           {/* Rota de fallback */}
@@ -69,18 +69,16 @@ const AppRoutes = () => {
     )
 }
 
-// O componente App agora gerencia os provedores na ordem correta
 const App = () => {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        {/* O BrowserRouter agora envolve o AuthProvider */}
         <BrowserRouter>
           <AuthProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
-              <AppRoutes /> {/* As rotas são carregadas aqui dentro */}
+              <AppRoutes />
             </TooltipProvider>
           </AuthProvider>
         </BrowserRouter>
