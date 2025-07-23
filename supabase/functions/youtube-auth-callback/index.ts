@@ -1,100 +1,94 @@
 // supabase/functions/youtube-auth-callback/index.ts
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Função auxiliar para criar um cliente Supabase a partir de um token de acesso
-async function createSupabaseClient(accessToken: string): Promise<SupabaseClient> {
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
-  );
-  // Define a sessão do usuário com o token fornecido
-  const { data: { user } } = await supabaseClient.auth.getUser(accessToken);
-  await supabaseClient.auth.setSession({
-    access_token: accessToken,
-    refresh_token: '', // O refresh token não é necessário aqui
-    user: user!,
-  });
-  return supabaseClient;
-}
+const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
+const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  const url = new URL(req.url);
+  const code = url.searchParams.get('code');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-  const SITE_URL = Deno.env.get('SITE_URL');
-  if (!SITE_URL) {
-      return new Response(JSON.stringify({ error: 'SITE_URL não configurado.' }), { status: 500 });
+  // O redirecionamento DEVE ser exatamente o mesmo configurado no Google Cloud Console
+  // e na chamada do frontend.
+  const REDIRECT_URI = `${supabaseUrl}/functions/v1/youtube-auth-callback`;
+
+  if (!code) {
+    return new Response('Código de autorização não encontrado.', { status: 400 });
   }
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get('code');
-    const accessToken = url.searchParams.get('access_token');
-
-    if (!code && !accessToken) {
-      throw new Error('Código de autorização ou token de acesso não encontrado.');
-    }
-
-    // Cria um cliente Supabase a partir do token de acesso na URL
-    const supabaseClient = await createSupabaseClient(accessToken!);
-    const { data: { user } } = await supabaseClient.auth.getUser();
-
-    if (!user) {
-      throw new Error('Não foi possível obter a sessão do usuário.');
-    }
-
-    // Cria um cliente com permissões de administrador para acessar o banco de dados
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // Troca o código pelos tokens de acesso e de atualização
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/oauth2/v4/token', {
+    // 1. Trocar o código de autorização por tokens de acesso
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code: code!,
-        client_id: Deno.env.get('GOOGLE_CLIENT_ID')!,
-        client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
-        redirect_uri: `${Deno.env.get('SUPABASE_URL')}/functions/v1/youtube-auth-callback`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: REDIRECT_URI,
         grant_type: 'authorization_code',
       }),
     });
 
     if (!tokenResponse.ok) {
       const errorBody = await tokenResponse.json();
-      throw new Error(`Falha ao trocar o código pelo token: ${errorBody.error_description || 'Erro desconhecido'}`);
+      throw new Error(`Falha ao obter token: ${errorBody.error_description}`);
     }
 
     const tokens = await tokenResponse.json();
-    const { access_token, refresh_token, expires_in, scope } = tokens;
-    const expires_at = new Date(Date.now() + expires_in * 1000);
+    const { access_token, refresh_token, expires_in } = tokens;
 
-    // Salva os tokens na tabela 'youtube_tokens'
-    const { error: dbError } = await supabaseAdmin.from('youtube_tokens').upsert({
-      user_id: user.id,
-      access_token: access_token,
-      refresh_token: refresh_token,
-      expires_at: expires_at.toISOString(),
-      scope: scope,
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
+    // 2. Usar o access_token para obter informações do usuário e do canal
+    const profileResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const googleUser = await profileResponse.json();
 
-    if (dbError) {
-      throw new Error('Falha ao salvar os tokens no banco de dados.');
-    }
+    const channelResponse = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true', {
+        headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const channelData = await channelResponse.json();
+    const channel = channelData.items[0];
 
-    // Redireciona de volta para o dashboard com um parâmetro de sucesso
-    return Response.redirect(`${SITE_URL}/youtube-dashboard?connected=true`);
+    // 3. Criar um cliente Supabase com Service Role para interagir com o DB
+    const supabaseAdmin = createClient(supabaseUrl!, serviceRoleKey!);
+    
+    // Obter o ID do usuário logado no app a partir do cookie de sessão
+    const { data: { user } } = await supabaseAdmin.auth.getUser(req.headers.get('Authorization')!.replace('Bearer ', ''));
+    if (!user) throw new Error('Usuário não autenticado no Supabase.');
+
+    // 4. Salvar os dados na tabela 'youtube_channels'
+    const channelInfo = {
+        user_id: user.id,
+        channel_id: channel.id,
+        channel_name: channel.snippet.title,
+        thumbnail_url: channel.snippet.thumbnails.default.url,
+        access_token: access_token,
+        refresh_token: refresh_token,
+        expires_at: new Date(Date.now() + expires_in * 1000).toISOString(),
+    };
+
+    const { error } = await supabaseAdmin
+      .from('youtube_channels')
+      .upsert(channelInfo, { onConflict: 'user_id, channel_id' }); // Upsert para atualizar se já existir
+
+    if (error) throw error;
+    
+    // 5. Redirecionar de volta para a página de dashboard com um parâmetro de sucesso
+    const redirectTo = new URL('/analytics', url.origin); // Assumindo que a rota é /analytics
+    redirectTo.searchParams.set('connected', 'true');
+    return Response.redirect(redirectTo.toString(), 302);
 
   } catch (error) {
-    console.error('Erro na Edge Function youtube-auth-callback:', error.message);
-    return Response.redirect(`${SITE_URL}/youtube-dashboard?error=${encodeURIComponent(error.message)}`);
+    console.error('Erro no callback de autenticação do YouTube:', error);
+    const redirectTo = new URL('/analytics', url.origin);
+    redirectTo.searchParams.set('error', encodeURIComponent(error.message));
+    return Response.redirect(redirectTo.toString(), 302);
   }
-})
+});
